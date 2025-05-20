@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}ADMIN FELHASZNÁLÓK{% endblock %}
+{% block content %}
+
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+
+
+<div class="container">
+    <h1 class="title" id="highlight">FELHASZNÁLÓK KEZELÉSE</h1>
+</div>
+<br>
+<div id="table"></div>
+
+    {% if current_user.role == "dementor" or current_user.role == "admin" or current_user.role == "regular" %}
+        <script type="text/javascript">
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            new gridjs.Grid({
+                columns: [
+                    { id: 'id', name: 'Id', hidden: true },
+                    { id: 'name', name: 'Név' },
+                    { id: 'email', name: 'Email' },
+                    { id: 'created_date', name: 'Létrehozva' },
+
+                    {% if current_user.role == "admin" %}
+                        {
+                            id: 'role',
+                            name: 'Jogosultság',
+                            formatter: (cell, row) => {
+                                const userId = row.cells[0].data;
+                                return gridjs.html(`
+                                    <form method="POST" action="/update_role/${userId}">
+                                        <input type="hidden" name="csrf_token" value="${csrfToken}">
+                                        <select name="role" class="form-select form-select-sm" onchange="this.form.submit()">
+                                            ${['admin', 'dementor', 'regular'].map(role => `
+                                                <option value="${role}" ${cell === role ? 'selected' : ''}>${role}</option>
+                                            `).join('')}
+                                        </select>
+                                    </form>
+                                `);
+                            }
+                        },
+                    {% else %}
+                        { id: 'role', name: 'Jogosultság' },
+                    {% endif %}
+
+                    { id: 'user_id', hidden: true }
+                ],
+                data: [
+                    {% for user in users %}
+                        [
+                            "{{ user.id }}",
+                            "{{ user.user_family_name|escape }} {{ user.user_given_name|escape }}",
+                            "{{ user.email|escape }}",
+                            "{{ user.created_date.strftime('%Y %m %d') }}",
+                            "{{ user.role }}",
+                            "{{ user.id }}"
+                        ]{{ "," if not loop.last }}
+                    {% endfor %}
+                ],
+                search: true,
+                sort: true,
+                pagination: {
+                    enabled: true,
+                    summary: true
+                },
+                language: {
+                    search: { placeholder: 'Keresés...' },
+                    pagination: {
+                        previous: 'Előző',
+                        next: 'Következő',
+                        showing: 'Megjelenítve',
+                        results: () => 'találat'
+                    },
+                    loading: 'Betöltés...',
+                    noRecordsFound: 'Nincs találat',
+                    error: 'Hiba történt az adatok betöltésekor'
+                }
+            }).render(document.getElementById("table"));
+        </script>
+    {% endif %}
+
+{% endblock %}

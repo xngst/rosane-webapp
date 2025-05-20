@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}ADATLAP{% endblock %}
+{% block content %}
+
+<!-- CSS/JS for Lightbox -->
+<link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox-plus-jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+
+<!-- Image Gallery Styling -->
+<style>
+.image-gallery a {
+    display: inline-block;
+    margin: 0.3rem;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.image-gallery img {
+    height: 10em;
+    width: auto;
+    object-fit: cover;
+}
+</style>
+
+<!-- Lightbox Custom Background -->
+<style>
+.lightboxOverlay {
+    background-image: url('{{ url_for('static', filename='img/gallery_bg.jpg') }}');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.8 !important;
+}
+.lightbox {
+    background-color: rgba(255,255,255,0.1);
+}
+.lb-dataContainer {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+.lb-caption, .lb-number {
+    color: white;
+}
+.lb-close:hover {
+    color: white;
+}
+</style>
+
+<div class="container">
+  <div class="columns is-centered">
+    <div class="column is-10">
+      <div class="card">
+        <header class="card-header has-background-info">
+          <p class="card-header-title has-text-white is-size-5">
+            <span>Adatlap: {{ entry.title }}</span>
+          </p>
+        </header>
+
+        {% if current_user.role != "regular" %}
+        <a href="{{ url_for('update_datasheet', entry_id=entry.id) }}" class="card-header-item is-active">
+          <div class="tags are-medium">
+            <span class="tag"><i class="fas fa-edit me-1"></i> Szerkesztés</span>
+          </div>
+        </a>
+        {% endif %}
+
+        <div class="card-content">
+          <div class="is-flex is-justify-content-flex-end mb-4">
+            <a class="button is-link"
+              href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('adatlap', entry_id=entry.id, _external=True) }}"
+              target="_blank" rel="noopener">
+              <span class="icon"><i class="fab fa-facebook"></i></span>
+              <span>Megosztás</span>
+            </a>
+          </div>
+
+          <div class="box">
+            <div class="columns is-multiline">
+              {% set fields = [
+                ('<i class="fas fa-map-marker-alt"></i> Helyszín', entry.full_address or '—'),
+                ('<i class="fas fa-hashtag"></i> Azonosító', entry.rosan_id),
+                ('<i class="fas fa-thumbs-up"></i> Kedvelések száma', entry.like_count or '—'),
+                ('<i class="fas fa-user"></i> Pályázó neve', entry.applicant_name or '—'),
+                ('<i class="fas fa-folder-open"></i> Kategória', entry.category or '—'),
+                ('<i class="fas fa-info-circle"></i> Állapot', entry.status or '—'),
+                ('<i class="fas fa-hand-holding-usd"></i> Támogatás összege', entry.huf_awarded ~ ' HUF' if entry.huf_awarded else '—'),
+              ] %}
+              {% for label, value in fields %}
+              <div class="column is-half">
+                <p><strong>{{ label|safe }}:</strong> {{ value }}</p>
+              </div>
+              {% endfor %}
+
+              <div class="column is-half">
+                <p><strong><i class="fab fa-facebook-square"></i> Facebook esemény:</strong></p>
+                {% if entry.facebook_url %}
+                <a href="{{ entry.facebook_url }}" target="_blank" class="button is-small is-link mt-1">
+                  <span class="icon"><i class="fas fa-external-link-alt"></i></span>
+                  <span>Megnyitás</span>
+                </a>
+                {% else %}
+                <p>—</p>
+                {% endif %}
+              </div>
+
+              <div class="column is-full">
+                <p class="subtitle is-6"><strong><i class="fas fa-align-left"></i> Projekt leírás</strong></p>
+                <div class="content">
+                  <p>{{ entry.description or '—' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {% if images %}
+          <div class="box image-gallery mt-5">
+            <h2 class="subtitle is-6"><i class="fas fa-images me-1"></i> Képek</h2>
+            <div class="columns is-multiline">
+              {% for img in images %}
+              <div class="column is-one-third-desktop is-half-tablet is-full-mobile">
+                <a href="{{ img.url }}" data-lightbox="gallery">
+                  <img src="{{ img.url }}" alt="{{ img.name }}">
+                </a>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <footer class="card-footer is-flex is-flex-direction-column p-4">
+          <a href="/applications" class="button is-link is-fullwidth">
+            <span class="icon"><i class="fas fa-arrow-left"></i></span>
+            <span>Vissza a pályázatokhoz</span>
+          </a>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+

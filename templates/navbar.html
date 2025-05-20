@@ -1,0 +1,70 @@
+<style>
+.navbar {
+  box-shadow: 0 4px 0px black;
+  font-family: "Rubik Mono One", monospace;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.navbar-brand .navbar-item strong {
+  font-size: 1.25rem;
+}
+
+.navbar-item.is-active {
+  background-color: coral !important;
+  color: white !important;
+  font-weight: bold;
+}
+</style>
+
+
+<nav class="navbar is-warning", role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a class="navbar-item" href="{{ url_for('index') }}">
+    <img src="{{ url_for('static', filename='favicon.ico') }}"></img>
+      <strong>INFO</strong>
+    </a>
+
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+
+  <div id="navbarMenu" class="navbar-menu">
+    <div class="navbar-start">
+	<a class="navbar-item {% if request.endpoint == 'map' %}is-active{% endif %}" href="{{ url_for('map') }}">TÉRKÉP</a>
+
+	<a class="navbar-item {% if request.endpoint == 'applications' %}is-active{% endif %}" href="{{ url_for('applications') }}">PÁLYÁZATOK</a>
+
+	{% if current_user.role == "dementor" or current_user.role == "admin" %}
+	<a class="navbar-item {% if request.endpoint == 'entry_form' %}is-active{% endif %}" href="{{ url_for('entry_form') }}">PÁLYÁZAT_HOZZÁADÁS</a>
+	<a class="navbar-item {% if request.endpoint == 'admin_user' %}is-active{% endif %}" href="{{ url_for('admin_user') }}">FELHASZNÁLÓK</a>
+	{% endif %}
+
+	{% if current_user.role == "admin" %}
+	<a class="navbar-item {% if request.endpoint == 'campaign_list' %}is-active{% endif %}" href="{{ url_for('campaign_list') }}">KAMPÁNY</a>
+	{% endif %}
+
+	{% if current_user.is_authenticated %}
+	<a class="navbar-item {% if request.endpoint == 'profil' %}is-active{% endif %}" href="{{ url_for('profil') }}">👤FIÓK</a>
+	{% else %}    
+	<a class="navbar-item {% if request.endpoint == 'login' %}is-active{% endif %}" href="{{ url_for('login') }}">BEJELENTKEZÉS</a>
+	{% endif %} 
+    </div>
+  </div>
+</nav>
+
+<!--BURGER ICON-->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const burger = document.querySelector('.navbar-burger');
+  const menu = document.getElementById(burger.dataset.target);
+  burger.addEventListener('click', () => {
+    burger.classList.toggle('is-active');
+    menu.classList.toggle('is-active');
+  });
+});
+</script>
+

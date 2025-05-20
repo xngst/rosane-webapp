@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}FIÓK{% endblock %}
+{% block content %}
+
+<div class="container">
+    <h1 class="title" id="highlight">
+        <i class="fas fa-user-circle"></i> PROFIL
+    </h1>
+
+    <div class="buttons is-right">
+        <a class="button is-danger" id="delete-button">
+            <span class="icon"><i class="fas fa-trash"></i></span>
+            <span>Profil Törlése</span>
+        </a>        
+        <a class="button is-link" href="{{ url_for('logout') }}">
+            <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
+            <span>Kijelentkezés</span>
+        </a>
+    </div>
+
+    <div class="modal" id="delete-modal">
+        <div class="modal-background"></div>
+        <div class="modal-content">
+            <div class="card">
+                <header class="card-header">
+                    <p class="card-header-title">
+                        <i class="fas fa-exclamation-triangle mr-2"></i> Profil Törlése
+                    </p>
+                    <button class="delete" aria-label="close"></button>
+                </header>
+                <section class="card-content">
+                    <p><i class="fas fa-warning"></i> Biztosan törölni szeretnéd a profilodat? Ez a művelet nem vonható vissza!</p>
+                </section>
+                <footer class="card-footer">
+                    <a id="delete-confirm" class="button is-danger">
+                        <span class="icon"><i class="fas fa-trash-alt"></i></span>
+                        <span>Törlés</span>
+                    </a>
+                    <button class="button">Mégse</button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <div class="box">
+        <p><i class="fas fa-calendar-plus"></i> <b>Fiók Létrehozva:</b> {{ current_user.created_date.strftime("%Y %m %d") }}</p>
+        <p><i class="fas fa-user-tag"></i> <b>Jogosultság:</b> {{ current_user.role }}</p>
+        <br>
+
+        {% if active_campaign is not none %}
+            <p><i class="fas fa-bullhorn"></i> <b>Jelenlegi aktív kampány:</b> {{ active_campaign.name }}</p>
+        {% endif %}
+        {% if voted_for_entry is not none %}
+            <p><i class="fas fa-check-circle"></i> <b>Erre szavaztál:</b> {{ voted_for_entry.title }}</p>
+        {% endif %}
+        {% if current_user.last_like_date is not none %}
+            <p><i class="fas fa-clock"></i> <b>Ekkor:</b> {{ current_user.last_like_date.strftime("%Y-%m-%d") }}</p>
+        {% endif %}
+        <br>
+        <p><i class="fas fa-plus"></i> <b>HOZZÁADNI:</b> ha dementor vagy admin, akkor az általa hozzáadott ügyek listája</p>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteButton = document.getElementById('delete-button');
+        const modal = document.getElementById('delete-modal');
+        const modalCloseButtons = document.querySelectorAll('.modal-background, .modal .delete, .modal .button:last-child');
+        const deleteConfirmButton = document.getElementById('delete-confirm');
+
+        function openModal() {
+            modal.classList.add('is-active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('is-active');
+        }
+
+        if (deleteButton) {
+            deleteButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                openModal();
+            });
+        }
+
+        modalCloseButtons.forEach(button => {
+            button.addEventListener('click', closeModal);
+        });
+
+        if (deleteConfirmButton) {
+            deleteConfirmButton.addEventListener('click', function() {
+                window.location.href = "{{ url_for('logout') }}";
+            });
+        }
+    });
+</script>
+
+{% endblock %}
+

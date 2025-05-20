@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}KAMPÁNYOK{% endblock %}
+{% block content %}
+<div class="container">
+     <h1 class="title" id="highlight">KAMPÁNY LISTA</h1>
+    <div class="table-container">
+    <table class="table is-striped is-fullwidth">
+        <thead>
+            <tr>
+                <th>Név</th>
+                <th>Ettől</th>
+                <th>Eddig</th>
+                <th>Státusz</th>
+                <th>Létrehozva</th>
+                <th>Módosítva</th>
+                <th>Opciók</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for campaign in campaigns %}
+            <tr>
+                <td>{{ campaign.name }}</td>
+                <td>{{ campaign.from_date.strftime('%Y-%m-%d') if campaign.from_date else '' }}</td>
+                <td>{{ campaign.to_date.strftime('%Y-%m-%d') if campaign.to_date else '' }}</td>
+                <td>{{ campaign.status }}</td>
+                <td>{{ campaign.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>{{ campaign.updated_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <div class="buttons">
+                        <a href="{{ url_for('campaign_edit', campaign_id=campaign.id) }}" class="button is-primary is-small">Szerkesztés</a>
+                        <form method="POST" action="{{ url_for('campaign_delete', campaign_id=campaign.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button is-danger is-small" onclick="return confirm('De biztos biztos biztos?')">Törlés</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <card>///+hozzáadni hányan szavaztak </card>
+    
+    </div>
+    <a href="{{ url_for('campaign_create') }}" class="button is-link">Új kampány hozzáadása</a>
+</div>
+
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}404{% endblock %}
+{% block content %}
+
+<p class="notification is-danger is-size-4 has-text-centered">A keresett honlapot ellopták!</p>
+
+<img src="{{ url_for('static', filename='img/rózsa404.webp') }}" alt="404">
+
+
+{% endblock %}

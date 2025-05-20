@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% block title %}FORMA{% endblock %}
+{% block content %}
+
+<style>
+.fade-out {
+    opacity: 0;
+    transition: opacity 4s ease-out;
+}
+
+#submit_button {
+    display: inline-block;
+    padding: 15px 25px;
+    font-size: 24px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    outline: none;
+    color: black;
+    border: 2px solid black;
+    border-radius: 15px;
+    box-shadow: 0 10px black;
+}
+
+.button:hover {
+    background-color: white;
+    color: purple;
+}
+
+.button:active {
+    background-color: white;
+    color: black;
+    box-shadow: 0 5px #666;
+    transform: translateY(4px);
+}
+
+
+</style>
+
+<div class="container">
+    <h1 id="highlight" class="title is-2">ÚJ PÁLYÁZAT</h1>
+    <hr>
+<!-- Font Awesome (only add once in your template) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<form method="POST" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="is-hidden">
+        {{ form.city }}
+        {{ form.county }}
+        {{ form.zipcode }}
+        {{ form.lat }}
+        {{ form.lng }}
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Elnevezés</marker></label>
+        <div class="control has-icons-left">
+            {{ form.title(class='input', id='title') }}
+            <span class="icon is-left"><i class="fas fa-quote-right"></i></span>
+        </div>
+        {% for error in form.title.errors %}
+            <p class="help is-danger" id="title-error">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Pályázó neve</marker></label>
+        <div class="control has-icons-left">
+            {{ form.applicant_name(class='input') }}
+            <span class="icon is-left"><i class="fas fa-user"></i></span>
+        </div>
+        {% for error in form.applicant_name.errors %}
+            <p class="help is-danger" id="applicant-name-error">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Kategória</marker></label>
+        <div class="control has-icons-left">
+            <div class="select is-fullwidth">
+                {{ form.category() }}
+            </div>
+            <span class="icon is-left"><i class="fas fa-list-alt"></i></span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Leírás</marker></label>
+        <div class="control">
+            {{ form.description(class_='textarea') }}
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Facebook esemény linkje</marker></label>
+        <div class="control has-icons-left">
+            {{ form.facebook_url(class='input') }}
+            <span class="icon is-left"><i class="fab fa-facebook"></i></span>
+        </div>
+        {% for error in form.facebook_url.errors %}
+            <p class="help is-danger" id="facebook-url-error">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Státusz</marker></label>
+        <div class="control has-icons-left">
+            <div class="select is-fullwidth">
+                {{ form.status() }}
+            </div>
+            <span class="icon is-left"><i class="fas fa-check-circle"></i></span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label"><marker>Helyszín</marker></label>
+        <div class="control has-icons-left">
+            {{ form.full_address(class_='input', id='address') }}
+            <span class="icon is-left"><i class="fas fa-location-dot"></i></span>
+        </div>
+        <button type="button" class="button is-info is-light mt-2" onclick="complete_address()">
+            <span class="icon"><i class="fas fa-map-location-dot"></i></span>
+            <span>Cím ellenőrzése</span>
+        </button>
+        <br>
+        <div id="map" style="height: 30em;"></div>
+    </div>
+
+    <div id="file-upload-wrapper" class="file has-name is-fullwidth mt-4">
+        <label class="file-label">
+            <input class="file-input" type="file" name="images" id="image-input" multiple accept="image/*">
+            <span class="file-cta">
+                <span class="icon"><i class="fas fa-image"></i></span>
+                <span class="file-label"><h2>Képek</h2></span>
+            </span>
+            <span class="file-name" id="file-name">Nincs kép kiválasztva</span>
+        </label>
+    </div>
+
+    <div id="preview-gallery" class="columns is-multiline mt-4"></div>
+
+    <div class="field mt-5">
+        <div class="control">
+            <button class="button is-warning" id="submit_button" type="submit">
+                <span class="icon"><i class="fas fa-plus-circle"></i></span>
+                <span><b>LÉTREHOZÁS</b></span>
+            </button>
+        </div>
+    </div>
+</form>
+
+</div>
+<!-- Scripts -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+<script>
+    const imageInput = document.getElementById("image-input");
+    const fileNameDisplay = document.getElementById("file-name");
+    const gallery = document.getElementById("preview-gallery");
+    let selectedFiles = [];
+
+    imageInput.addEventListener("change", () => {
+        selectedFiles = Array.from(imageInput.files);
+        updateGallery();
+    });
+
+    function updateGallery() {
+        gallery.innerHTML = "";
+        if (selectedFiles.length > 0) {
+            fileNameDisplay.textContent = `${selectedFiles.length} fájl kiválasztva`;
+        } else {
+            fileNameDisplay.textContent = "Nincs kép kiválasztva";
+        }
+
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const column = document.createElement("div");
+                column.className = "column is-one-quarter";
+                column.innerHTML = `
+                    <div class="card">
+                        <div class="card-image">
+                            <figure class="image is-4by3">
+                                <img src="${e.target.result}" alt="Kép előnézet">
+                            </figure>
+                        </div>
+                        <div class="card-content">
+                            <p class="title is-6">${file.name}</p>
+                            <div class="has-text-centered">
+                                <button class="button is-small is-danger" onclick="removeImage(${index})">Törlés</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                gallery.appendChild(column);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    window.removeImage = function(index) {
+        selectedFiles.splice(index, 1);
+        updateGallery();
+
+        const dataTransfer = new DataTransfer();
+        selectedFiles.forEach(file => dataTransfer.items.add(file));
+        imageInput.files = dataTransfer.files;
+    };
+</script>
+
+<script>
+    const titleInput = document.getElementById("title");
+    if (titleInput) {
+        titleInput.addEventListener("input", function () {
+            const error = document.getElementById("title-error");
+            if (error) {
+                error.textContent = '';
+            }
+        });
+    }
+</script>
+
+
+<script>
+    mapboxgl.accessToken = '{{ MAPBOX_KEY }}';
+    const map = new mapboxgl.Map({
+        container: 'map',
+        center: [{{ START_LNG }}, {{ START_LAT }}],
+        zoom: 6,
+        style: 'mapbox://styles/mapbox/streets-v11'
+    });
+
+    map.addControl(new mapboxgl.NavigationControl());
+    map.addControl(new mapboxgl.FullscreenControl());
+
+	//ON CLICK
+    map.on("click", (e) => {
+        const { lng, lat } = e.lngLat;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&language=hu&types=address`;
+
+        $.get(url, function (data) {
+            let address, city, county, zipcode;
+            try {
+                address = data.features[0].place_name;
+                city = address.split(",")[0].trim();
+                const street = address.split(",")[1]?.trim();
+                zipcode = address.split(",")[2]?.trim().substring(1, 3) || "";
+                county = city === "Budapest"
+                    ? "Budapest"
+                    : address.split(",")[3]?.trim() || "";
+            } catch (err) {
+                document.getElementById("address").value = "Sajnos nem találtunk címet!";
+                return;
+            }
+
+            county = county.replace("vármegye", "").replace("megye", "").trim();
+
+            document.getElementById("city").value = city;
+            document.getElementById("zipcode").value = zipcode;
+            document.getElementById("county").value = county;
+            document.getElementById("address").value = address;
+            document.getElementById("lng").value = lng;
+            document.getElementById("lat").value = lat;
+
+            map.flyTo({ center: [lng, lat], zoom: 12 });
+            updateMapPoint(lng, lat, address);
+        });
+    });
+    
+  function complete_address(){
+    //FW GEOCODING COMPLETION
+    var address_input = document.getElementById("address").value;
+    url = "https://api.mapbox.com/geocoding/v5/mapbox.places/" + 
+    address_input +
+    ".json?country=hu" +
+    "&proximity=-73.990593%2C40.740121" +
+    "&types=place%2Cpostcode%2Caddress" +
+    "&language=hu" +
+    "&access_token={{MAPBOX_KEY}}"
+    
+    $.get(url, function (data) {
+      try {
+        var address = data.features[0].place_name;
+      }
+      catch(err) {
+        document.getElementById("address").value = "Sajnos nem találtunk címet!"
+        return;
+      }
+    var location_center = data.features[0].center; 
+    var lat = data.features[0].center[1]
+    var lng = data.features[0].center[0]
+    var city = address.split(",")[0].trim()
+    var zipcode = address.split(",")[2].trim().substring(1,3)
+  
+    if (city == "Budapest"){ 
+      var county = "Budapest"
+    } else {
+      var county = address.split(",")[3].trim()
+    };
+  
+    var county = county.replace("vármegye", "").trim()
+    var county = county.replace("megye", "").trim()
+
+    document.getElementById("address").value = address
+    document.getElementById("city").value = city
+    document.getElementById("zipcode").value = zipcode
+    document.getElementById("county").value = county
+    document.getElementById("lng").value = lng
+    document.getElementById("lat").value = lat
+  
+    deletePopup();
+    addPopup(lng, lat, address);
+    deleteLayer();
+    deleteSource();
+    addSource(lng,lat);
+    addLayer();
+    map.flyTo({center: [lng,lat], zoom:12});
+  })
+};    
+
+    function updateMapPoint(lng, lat, address) {
+        deletePopup();
+        deleteLayer();
+        deleteSource();
+        addSource(lng, lat);
+        addLayer();
+        addPopup(lng, lat, address);
+    }
+
+    function deleteSource() {
+        if (map.getSource('points')) {
+            map.removeSource('points');
+        }
+    }
+
+    function deleteLayer() {
+        if (map.getLayer('circle')) {
+            map.removeLayer('circle');
+        }
+    }
+
+    function addSource(lng, lat) {
+        map.addSource('points', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    }
+                }]
+            }
+        });
+    }
+
+    function addLayer() {
+        map.addLayer({
+            id: 'circle',
+            type: 'circle',
+            source: 'points',
+            paint: {
+                'circle-color': '#ff0000',
+                'circle-radius': 10,
+                'circle-stroke-width': 2,
+                'circle-opacity': 0.5
+            }
+        });
+    }
+
+    function deletePopup() {
+        const popups = document.getElementsByClassName("mapboxgl-popup");
+        if (popups.length) popups[0].remove();
+    }
+
+    function addPopup(lng, lat, address) {
+        new mapboxgl.Popup({ closeOnClick: false })
+            .setLngLat([lng, lat])
+            .setHTML(`<p>${address}</p>`)
+            .addTo(map);
+    }
+</script>
+{% endblock %}

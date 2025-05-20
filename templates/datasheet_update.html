@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}ADATLAP SZERKESZTÉSE{% endblock %}
+{% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox-plus-jquery.min.js"></script>
+
+<style>
+.card-header-title{color:white;}
+#map {
+    width: 100%;
+    height: 300px;
+    margin-top: 1em;
+    border-radius: 5px;
+}
+</style>
+
+<div class="container">
+  <div class="columns is-centered">
+    <div class="column is-10">
+      <div class="card">
+        <header class="card-header has-background-danger">
+          <p class="card-header-title has-text-white is-flex is-align-items-center is-size-5">
+            <i class="fas fa-pen-to-square me-2 mr-2"></i> <span>{{ entry.title }}</span>
+          </p>
+        </header>
+
+        <a href="{{ url_for('adatlap', entry_id=entry.id) }}">
+          <div class="tags are-medium is-warning">
+            <span class="tag"><i class="fas fa-arrow-left"></i> Vissza</span>
+          </div>
+        </a>
+
+        <div class="card-content">
+          <form method="POST" action="{{ url_for('update_datasheet', entry_id=entry.id) }}" enctype="multipart/form-data">
+            <div class="parent-of-control is-flex is-justify-content-end">
+              <div class="control">
+                <button type="submit" class="button is-primary">
+                  <span class="icon"><i class="fas fa-save"></i></span>
+                  <span>Mentés</span>
+                </button>
+              </div>
+            </div>
+
+            {{ form.hidden_tag() }}
+
+            <div class="columns is-multiline">
+              <!-- Full Address -->
+              <div class="column is-half">
+                <div class="field">
+                  <label class="label"><i class="fas fa-map-marker-alt"></i> {{ form.full_address.label }}</label>
+                  <div class="control">
+                    {{ form.full_address(class="input", readonly=true) }}
+                  </div>
+                  {% for error in form.full_address.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+                <button type="button" class="button is-warning is-fullwidth" onclick="window.location.href='{{ url_for('update_address', entry_id=entry.id) }}'">
+                  <i class="fas fa-edit"></i> Cím szerkesztése
+                </button>
+              </div>
+
+              <!-- Title -->
+              <div class="column is-half">
+                <div class="field{% if form.title.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-quote-right"></i> {{ form.title.label }}</label>
+                  <div class="control">
+                    {{ form.title(class="input") }}
+                  </div>
+                  {% for error in form.title.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Rosan ID -->
+              <div class="column is-half">
+                <div class="field{% if form.rosan_id.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-id-badge"></i> {{ form.rosan_id.label }}</label>
+                  <div class="control">
+                    {{ form.rosan_id(class="input") }}
+                  </div>
+                  {% for error in form.rosan_id.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Applicant Name -->
+              <div class="column is-half">
+                <div class="field{% if form.applicant_name.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-user"></i> {{ form.applicant_name.label }}</label>
+                  <div class="control">
+                    {{ form.applicant_name(class="input") }}
+                  </div>
+                  {% for error in form.applicant_name.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Facebook URL -->
+              <div class="column is-half">
+                <div class="field{% if form.facebook_url.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fab fa-facebook"></i> {{ form.facebook_url.label }}</label>
+                  <div class="control">
+                    {{ form.facebook_url(class="input") }}
+                  </div>
+                  {% for error in form.facebook_url.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Category -->
+              <div class="column is-half">
+                <div class="field{% if form.category.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-list"></i> {{ form.category.label }}</label>
+                  <div class="control">
+                    <div class="select is-fullwidth{% if form.category.errors %} is-danger{% endif %}">
+                      {{ form.category }}
+                    </div>
+                  </div>
+                  {% for error in form.category.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Status -->
+              <div class="column is-half">
+                <div class="field{% if form.status.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-info-circle"></i> {{ form.status.label }}</label>
+                  <div class="control">
+                    <div class="select is-fullwidth{% if form.status.errors %} is-danger{% endif %}">
+                      {{ form.status }}
+                    </div>
+                  </div>
+                  {% for error in form.status.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- HUF Awarded -->
+              <div class="column is-half">
+                <div class="field{% if form.huf_awarded.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-coins"></i> {{ form.huf_awarded.label }}</label>
+                  <div class="control">
+                    {{ form.huf_awarded(class="input") }}
+                  </div>
+                  {% for error in form.huf_awarded.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div class="column is-full">
+                <div class="field{% if form.description.errors %} is-danger{% endif %}">
+                  <label class="label"><i class="fas fa-align-left"></i> {{ form.description.label }}</label>
+                  <div class="control">
+                    {{ form.description(class="textarea", rows="10") }}
+                  </div>
+                  {% for error in form.description.errors %}
+                    <p class="help is-danger">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Images -->
+              <div class="column is-full">
+                <hr>
+                <p class="mb-2"><i class="fas fa-image"></i> <strong>Feltöltött képek</strong></p>
+                <div class="columns is-multiline">
+                  {% for image in images %}
+                    <div class="column is-one-quarter">
+                      <div class="card">
+                        <div class="card-image">
+                          <figure class="image is-4by3">
+                            <a href="{{ image.url }}" data-lightbox="gallery">
+                              <img src="{{ image.url }}" alt="{{ image.file_name }}">
+                            </a>
+                          </figure>
+                        </div>
+                        <div class="card-content">
+                          <div class="level is-mobile">
+                            <div class="level-right">
+                              <form method="POST" action="{{ url_for('delete_image', image_id=image.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="button is-danger is-small" type="submit" onclick="return confirm('Biztosan törölni szeretnéd ezt a képet?')">
+                                  <i class="fas fa-trash-alt"></i> Törlés
+                                </button>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% else %}
+                    <p><i class="fas fa-ban"></i> Nincsenek feltöltött képek.</p>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            <hr>
+            <p class="mb-2"><i class="fas fa-trash"></i> <strong>Pályázat törlése</strong></p>
+          </form>
+
+          <div class="control">
+            <form method="POST" action="{{ url_for('delete_entry', entry_id=entry.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="button is-danger" type="submit" onclick="return confirm('Biztosan törölni szeretnéd ezt a bejegyzést?')">
+                <i class="fas fa-fire"></i> Törlés
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+

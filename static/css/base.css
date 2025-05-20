@@ -1,0 +1,26 @@
+.rubik {
+  font-family: "Rubik Mono One", monospace;
+  font-weight: 300;
+  font-style: normal;
+}
+
+#highlight {
+  color: coral;
+  background: white;
+  border-style: solid;
+  border-color: black;
+  padding: 0.2em;
+  font-size: 1.8em;
+  box-shadow: 9px 4px 0px black;
+  font-family: "Rubik Mono One", monospace;
+  font-weight: 300;
+  font-style: normal;
+}
+
+/* Responsive font size for small screens */
+@media (max-width: 600px) {
+  #highlight {
+    font-size: 1em;
+  }
+}
+

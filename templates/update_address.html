@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}HELYSZÍN{% endblock %}
+{% block content %}
+
+<!-- Font Awesome CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-10">
+
+        <br>
+        <div class="card">
+          <header class="card-header has-background-danger">
+            <p class="card-header-title has-text-white is-flex is-align-items-center is-size-5">
+              <span class="icon me-2"><i class="fas fa-map-marker-alt"></i></span>
+              <span>{{ entry.title }} - helyszín módósítás</span>
+            </p>
+          </header>
+
+          <a href="{{ url_for('update_datasheet', entry_id=entry.id) }}">
+            <div class="tags are-medium is-warning">
+              <span class="tag is-link"><i class="fas fa-arrow-left"></i> &nbsp;Vissza</span>
+            </div>
+          </a>
+
+          <div class="card-content">
+            <form method="POST" enctype="multipart/form-data">
+              {{ form.hidden_tag() }}
+              <div class="is-hidden">
+                {{ form.city(id="city") }}
+                {{ form.county(id="county") }}
+                {{ form.zipcode(id="zipcode") }}
+                {{ form.lat(id="lat") }}
+                {{ form.lng(id="lng") }}
+              </div>
+
+              <div class="parent-of-control is-flex is-justify-content-end">
+                <div class="control">
+                  <button type="submit" class="button is-primary">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Mentés</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">{{ form.full_address.label }}</label>
+                <div class="control">
+                  {{ form.full_address(class_='input', id='address') }}
+                </div>
+                {% for error in form.full_address.errors %}
+                  <p class="help is-danger">{{ error }}</p>
+                {% endfor %}
+              </div>
+
+              <button type="button" class="button is-link is-outlined" onclick="complete_address()">
+                <span class="icon"><i class="fas fa-map-location-dot"></i></span>
+                <span>Cím ellenőrzése</span>
+              </button>
+
+              <hr>
+              <div id="map" style="height: 30em;"></div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Scripts -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.min.js"></script>
+
+<script>
+  mapboxgl.accessToken = '{{ MAPBOX_KEY }}';
+  const map = new mapboxgl.Map({
+    container: 'map',
+    center: [{{ START_LNG }}, {{ START_LAT }}],
+    zoom: 12, // Increased initial zoom for better visibility
+    style: 'mapbox://styles/mapbox/streets-v11'
+  });
+
+  map.addControl(new mapboxgl.NavigationControl());
+  map.addControl(new mapboxgl.FullscreenControl());
+
+  // Function to add the marker at the entry's coordinates
+  function displayEntryMarker() {
+    const lng = {{ entry.lng }};
+    const lat = {{ entry.lat }};
+    const address = "{{ entry.full_address }}"; // You can use the full address as the popup content
+
+    addSource(lng, lat);
+    addLayer();
+    addPopup(lng, lat, address);
+  }
+
+  // Call displayEntryMarker after the map has loaded
+  map.on('load', displayEntryMarker);
+
+  //ON CLICK (remains the same)
+  map.on("click", (e) => {
+    const {
+      lng,
+      lat
+    } = e.lngLat;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&language=hu&types=address`;
+
+    $.get(url, function (data) {
+      let address, city,
+        county, zipcode;
+      try {
+        address = data.features[0].place_name;
+        city = address.split(",")[0].trim();
+        const street = address.split(",")[1]?.trim();
+        zipcode = address.split(",")[2]?.trim().substring(1, 3) || "";
+        county = city === "Budapest" ?
+          "Budapest" :
+          address.split(",")[3]?.trim() || "";
+      } catch (err) {
+        document.getElementById("address").value = "Sajnos nem találtunk címet!";
+        return;
+      }
+
+      county = county.replace("vármegye", "").replace("megye", "").trim();
+
+      document.getElementById("city").value = city;
+      document.getElementById("zipcode").value = zipcode;
+      document.getElementById("county").value = county;
+      document.getElementById("address").value = address;
+      document.getElementById("lng").value = lng;
+      document.getElementById("lat").value = lat;
+
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 12
+      });
+      updateMapPoint(lng, lat, address);
+    });
+  });
+
+  function complete_address() {
+    //FW GEOCODING COMPLETION
+    var address_input = document.getElementById("address").value;
+    url = "https://api.mapbox.com/geocoding/v5/mapbox.places/" +
+      address_input +
+      ".json?country=hu" +
+      "&proximity=-73.990593%2C40.740121" +
+      "&types=place%2Cpostcode%2Caddress" +
+      "&language=hu" +
+      "&access_token={{MAPBOX_KEY}}"
+
+    $.get(url, function (data) {
+      try {
+        var address = data.features[0].place_name;
+      } catch (err) {
+        document.getElementById("address").value = "Sajnos nem találtunk címet!"
+        return;
+      }
+      var location_center = data.features[0].center;
+      var lat = data.features[0].center[1]
+      var lng = data.features[0].center[0]
+      var city = address.split(",")[0].trim()
+      var zipcode = address.split(",")[2].trim().substring(1, 3)
+
+      if (city == "Budapest") {
+        var county = "Budapest"
+      } else {
+        var county = address.split(",")[3].trim()
+      };
+
+      var county = county.replace("vármegye", "").trim()
+      var county = county.replace("megye", "").trim()
+
+      document.getElementById("address").value = address
+      document.getElementById("city").value = city
+      document.getElementById("zipcode").value = zipcode
+      document.getElementById("county").value = county
+      document.getElementById("lng").value = lng
+      document.getElementById("lat").value = lat
+
+      deletePopup();
+      addPopup(lng, lat, address);
+      deleteLayer();
+      deleteSource();
+      addSource(lng, lat);
+      addLayer();
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 12
+      });
+    })
+  };
+
+  function updateMapPoint(lng, lat, address) {
+    deletePopup();
+    deleteLayer();
+    deleteSource();
+    addSource(lng, lat);
+    addLayer();
+    addPopup(lng, lat, address);
+  }
+
+  function deleteSource() {
+    if (map.getSource('points')) {
+      map.removeSource('points');
+    }
+  }
+
+  function deleteLayer() {
+    if (map.getLayer('circle')) {
+      map.removeLayer('circle');
+    }
+  }
+
+  function addSource(lng, lat) {
+    map.addSource('points', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [lng, lat]
+          }
+        }]
+      }
+    });
+  }
+
+  function addLayer() {
+    map.addLayer({
+      id: 'circle',
+      type: 'circle',
+      source: 'points',
+      paint: {
+        'circle-color': '#ff0000',
+        'circle-radius': 10,
+        'circle-stroke-width': 2,
+        'circle-opacity': 0.5
+      }
+    });
+  }
+
+  function deletePopup() {
+    const popups = document.getElementsByClassName("mapboxgl-popup");
+    if (popups.length) popups[0].remove();
+  }
+
+  function addPopup(lng, lat, address) {
+    new mapboxgl.Popup({
+        closeOnClick: false
+      })
+      .setLngLat([lng, lat])
+      .setHTML(`<p>${address}</p>`)
+      .addTo(map);
+  }
+</script>
+
+{% endblock %}
+

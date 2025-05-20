@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+ __MKKP__
+ \ \__/ /
+  \O  O/     
+  _\  /_ 
+ |  \/  |
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}RÓSÁN{% endblock %}</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&display=swap" rel="stylesheet">
+
+  <!-- Bulma CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Mapbox GL CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet" />
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
+  <!-- Page-specific styles/scripts -->
+  {% block head_extra %}{% endblock %}
+
+  <style>
+    ::selection {
+      color: white;
+      background: black;
+    }
+
+    #footer_divider {
+      border-top: 5px solid black;
+      background-color: lightblue;
+    }
+  </style>
+</head>
+
+
+<body>
+
+    <!-- Navbar Include -->
+    {% include "navbar.html" %}
+
+    <!-- Flash Messages -->
+	{% with messages = get_flashed_messages(with_categories=true) %}
+	  {% if messages %}
+		<div class="notification-container">
+		  {% for category, message in messages %}
+		    <div class="notification is-{{ category }}">
+		      {{ message }}
+		    </div>
+		  {% endfor %}
+		</div>
+	  {% endif %}
+	{% endwith %}
+
+    <!-- Main Content -->
+    <section class="section">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </section>
+
+    {% block scripts %}
+    {% endblock %}
+    <!--
+	{% include "footer.html" %}
+	-->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const notifications = document.querySelectorAll(".notification");
+    notifications.forEach((notif) => {
+      setTimeout(() => {
+        notif.classList.add("fade-out");
+        setTimeout(() => notif.remove(), 1000); // remove after fade
+      }, 4000);
+    });
+  });
+</script>
+
+</html>
+

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}SZERKESZTÉS{% endblock %}
+{% block content %}
+<div class="container">
+        <h1 class="title">{% if campaign %}Szerkesztés{% else %}Új kampány{% endif %}</h1>
+
+        <form method="POST">
+            {{ form.hidden_tag() }}  {# Include the CSRF token #}
+
+            <div class="field">
+                <label class="label" for="name">{{ form.name.label }}</label>
+                <div class="control">
+                    {{ form.name(class="input") }}
+                </div>
+                {% if form.name.errors %}
+                    <p class="help is-danger">{{ form.name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="field">
+                <label class="label" for="description">{{ form.description.label }}</label>
+                <div class="control">
+                    {{ form.description(class="textarea") }}
+                </div>
+                {% if form.description.errors %}
+                    <p class="help is-danger">{{ form.description.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="field">
+                <label class="label" for="from_date">{{ form.from_date.label }}</label>
+                <div class="control">
+                    {{ form.from_date(class="input") }}
+                </div>
+                {% if form.from_date.errors %}
+                    <p class="help is-danger">{{ form.from_date.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="field">
+                <label class="label" for="to_date">{{ form.to_date.label }}</label>
+                <div class="control">
+                    {{ form.to_date(class="input") }}
+                </div>
+                {% if form.to_date.errors %}
+                    <p class="help is-danger">{{ form.to_date.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="field">
+                <label class="label" for="status">{{ form.status.label }}</label>
+                <div class="control">
+                    <div class="select">
+                        {{ form.status() }}
+                    </div>
+                </div>
+                {% if form.status.errors %}
+                    <p class="help is-danger">{{ form.status.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="field is-grouped">
+                <div class="control">
+                    {{ form.submit(class="button is-primary") }}
+                </div>
+                <div class="control">
+                    <a href="{{ url_for('campaign_list') }}" class="button is-link is-light">Inkábbnem</a>
+                </div>
+            </div>
+        </form>
+
+        <p class="mt-4">
+            <a href="{{ url_for('campaign_list') }}" class="has-text-link">Vissza a kampánylistára</a>
+        </p>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const fromDateInput = document.getElementById('from_date');
+        const toDateInput = document.getElementById('to_date');
+
+        if (fromDateInput) {
+            fromDateInput.type = 'datetime-local';
+        }
+        if (toDateInput) {
+            toDateInput.type = 'datetime-local';
+        }
+    });
+</script>
+{% endblock %}

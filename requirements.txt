@@ -1,0 +1,11 @@
+Flask
+Flask-Dance
+Flask-SQLAlchemy
+Flask-Login
+Flask-WTF
+Werkzeug
+pillow
+python-dotenv
+boto3
+psycopg2-binary
+

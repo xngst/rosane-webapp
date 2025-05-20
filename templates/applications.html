@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}PÁLYÁZATOK{% endblock %}
+{% block content %}
+
+<link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+
+<div class="container">
+  <h1 class="title" id="highlight">PÁLYÁZATOK</h1>
+  
+  <div id="cards" class="is-hidden"></div>
+  <div id="table"></div>
+</div>
+
+<script>
+const entries = [
+  {% for entry in entries %}
+    {
+      id: "{{ entry.id }}",
+      title: "{{ entry.title|escape }}",
+      category: "{{ entry.category|escape }}",
+      city: "{{ entry.city|escape }}",
+      applicant: "{{ entry.applicant_name|escape }}",
+      like_count: "{{ entry.like_count }}"
+    }{{ "," if not loop.last }}
+  {% endfor %}
+];
+
+// Render as cards on mobile
+if (window.innerWidth < 768) {
+  document.getElementById('table').style.display = 'none';
+  document.getElementById('cards').classList.remove('is-hidden');
+
+  const container = document.getElementById('cards');
+  entries.forEach(entry => {
+    const card = document.createElement('div');
+    card.className = 'card mb-4';
+    card.innerHTML = `
+      <div class="card-content">
+        <p class="title is-5">${entry.title}</p>
+        <p><strong>Kategória:</strong> ${entry.category}</p>
+        <p><strong>Város:</strong> ${entry.city}</p>
+        <p><strong>Pályázó:</strong> ${entry.applicant}</p>
+        <p><strong>Kedvelések:</strong> ${entry.like_count}</p>
+        <form method="POST" action="/like/${entry.id}" class="mt-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="button is-primary is-small">👍 Ez tetszik!</button>
+        </form>
+        <a href="/adatlap/${entry.id}" class="button is-link is-light is-small mt-2">Részletek</a>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+} else {
+  // Render Grid.js for larger screens
+  new gridjs.Grid({
+    columns: [
+      { id: 'id', name: 'ID', hidden: true },
+      { id: 'title', name: 'Elnevezés' },
+      { id: 'category', name: 'Kategória' },
+      { id: 'city', name: 'Város' },
+      { id: 'applicant', name: 'Pályázó' },
+      { id: 'like_count', name: 'Kedvelések' },
+      {
+        name: 'Szavazás',
+        formatter: (cell, row) => {
+          return gridjs.html(`
+            <form method="POST" action="/like/${row.cells[0].data}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="button is-primary is-small">👍 Ez tetszik!</button>
+            </form>
+          `);
+        }
+      },
+      {
+        name: 'Adatlap',
+        formatter: (cell, row) => {
+          return gridjs.html(`
+            <a href="/adatlap/${row.cells[0].data}" class='has-text-link'>Részletek</a>
+          `);
+        }
+      }
+    ],
+    data: entries.map(e => [
+      e.id, e.title, e.category, e.city, e.applicant, e.like_count
+    ]),
+    search: true,
+    sort: true,
+    resizable: true,
+    pagination: {
+      enabled: true,
+      summary: true
+    },
+    language: {
+      'search': { 'placeholder': 'Keresés...' },
+      'pagination': {
+        'previous': 'Előző',
+        'next': 'Következő',
+        'showing': 'Megjelenítve',
+        'results': () => 'találat'
+      },
+      'loading': 'Betöltés...',
+      'noRecordsFound': 'Nincs találat',
+      'error': 'Hiba történt az adatok betöltésekor'
+    }
+  }).render(document.getElementById('table'));
+}
+</script>
+
+{% endblock %}
+
