@@ -3,15 +3,17 @@
 {% block content %}
 
 <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet"/>
-<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
 
 <div class="container">
   <h1 class="title" id="highlight">PÁLYÁZATOK</h1>
-  
+  <div class="box">
   <div id="cards" class="is-hidden"></div>
   <div id="table"></div>
 </div>
+</div>
 
+
+<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
 <script>
 const entries = [
   {% for entry in entries %}

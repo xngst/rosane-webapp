@@ -2,6 +2,7 @@ Flask
 Flask-Dance
 Flask-SQLAlchemy
 Flask-Login
+Flask-Migrate
 Flask-WTF
 Werkzeug
 pillow

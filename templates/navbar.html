@@ -40,11 +40,11 @@
 
 	{% if current_user.role == "dementor" or current_user.role == "admin" %}
 	<a class="navbar-item {% if request.endpoint == 'entry_form' %}is-active{% endif %}" href="{{ url_for('entry_form') }}">PÁLYÁZAT_HOZZÁADÁS</a>
-	<a class="navbar-item {% if request.endpoint == 'admin_user' %}is-active{% endif %}" href="{{ url_for('admin_user') }}">FELHASZNÁLÓK</a>
 	{% endif %}
 
 	{% if current_user.role == "admin" %}
 	<a class="navbar-item {% if request.endpoint == 'campaign_list' %}is-active{% endif %}" href="{{ url_for('campaign_list') }}">KAMPÁNY</a>
+	<a class="navbar-item {% if request.endpoint == 'admin_user' %}is-active{% endif %}" href="{{ url_for('admin_user') }}">FELHASZNÁLÓK</a>
 	{% endif %}
 
 	{% if current_user.is_authenticated %}

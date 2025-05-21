@@ -32,6 +32,7 @@
         </a>
 
         <div class="card-content">
+        {{ form.hidden_tag() }}
           <form method="POST" action="{{ url_for('update_datasheet', entry_id=entry.id) }}" enctype="multipart/form-data">
             <div class="parent-of-control is-flex is-justify-content-end">
               <div class="control">
@@ -41,9 +42,6 @@
                 </button>
               </div>
             </div>
-
-            {{ form.hidden_tag() }}
-
             <div class="columns is-multiline">
               <!-- Full Address -->
               <div class="column is-half">
@@ -205,10 +203,11 @@
               </div>
             </div>
             <hr>
-            <p class="mb-2"><i class="fas fa-trash"></i> <strong>Pályázat törlése</strong></p>
+            
           </form>
-
+          {% if current_user.role == "admin" %}
           <div class="control">
+          <p class="mb-2"><i class="fas fa-trash"></i> <strong>Pályázat törlése</strong></p>
             <form method="POST" action="{{ url_for('delete_entry', entry_id=entry.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="button is-danger" type="submit" onclick="return confirm('Biztosan törölni szeretnéd ezt a bejegyzést?')">
@@ -216,6 +215,7 @@
               </button>
             </form>
           </div>
+         {% endif %}
         </div>
       </div>
     </div>

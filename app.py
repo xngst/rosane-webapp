@@ -89,11 +89,11 @@ app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
 app.config['S3_BUCKET'] = S3_BUCKET
 app.config['S3_REGION'] = os.getenv("S3_REGION")
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-											'pool_pre_ping': True,
-											'pool_size': 10,
-											'max_overflow': 20,
-											'pool_recycle': 3600
-											}
+'pool_pre_ping': True,
+'pool_size': 10,
+'max_overflow': 20,
+'pool_recycle': 3600
+}
 
 app.register_blueprint(google_bp, url_prefix="/login")
 app.register_blueprint(facebook_bp, url_prefix="/login")
@@ -137,30 +137,29 @@ def logout():
 @app.route("/like/<int:entry_id>", methods=["POST"])
 @login_required
 def like(entry_id):
+    entry = Entry.query.get_or_404(entry_id)
 
-    entries = Entry.query.all()
     active_campaign = Campaign.query.filter_by(status="aktív").first()
-    
-    active_campaign_like = Like.query.filter(
+
+    user_has_liked_entry = Like.query.filter(
         Like.user_id == current_user.id,
+        Like.entry_id == entry.id,
         Like.campaign_id == active_campaign.id
     ).first()
-    
-    if not active_campaign_like:
-        entry = Entry.query.get(entry_id)
-        entry.like_count += 1    
-        
-        current_user.last_like_date = datetime.now()
-        like = Like(user_id=current_user.id,entry_id=entry.id,campaign_id=active_campaign.id)
-        db.session.add(like)
-        db.session.commit()
-        
-        flash(f"Sikeres szavazat!", "success")
-        return render_template("applications.html", entries=entries)
-    else:
-        flash(f"Már nem szavazhatsz ebben a kampányban!", "danger")
-        return render_template("applications.html", entries=entries)	    
 
+    if not user_has_liked_entry:
+        entry.like_count += 1
+
+        new_like = Like(user_id=current_user.id, entry_id=entry.id, campaign_id=active_campaign.id)
+        db.session.add(new_like)
+        db.session.commit()
+
+        flash(f"Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!", "success")
+        return redirect(url_for('applications'))
+    else:
+        flash(f"Egy pályázatra csak egy szavazat adható le!", "danger")
+        return redirect(url_for('applications'))
+    
 def check_role(role):
     if current_user.role != role:
         return False
@@ -246,18 +245,26 @@ def applications():
 @app.route("/profil", methods=["GET", "POST"])
 @login_required
 def profil():
-    active_campaign = Campaign.query.filter_by(status="aktív").first()
-    active_campaign_like = Like.query.filter(
-        Like.user_id == current_user.id,
-        Like.campaign_id == active_campaign.id
-    ).first()
-    
-    if active_campaign_like:
-        voted_for_entry = Entry.query.filter(Entry.id==active_campaign_like.entry_id).first()
-    else:
-        voted_for_entry = None
 
-    return render_template("profile.html",voted_for_entry=voted_for_entry,active_campaign=active_campaign)
+    active_campaign = Campaign.query.filter_by(status="aktív").first()
+
+    user_likes_in_active_campaign = Like.query.filter(
+        Like.user_id == current_user.id,
+        Like.campaign_id == active_campaign.id if active_campaign else None
+    ).all()
+
+    voted_entries = []
+
+    for like_obj in user_likes_in_active_campaign:
+        entry = Entry.query.get(like_obj.entry_id)
+        if entry:
+            voted_entries.append(entry)
+
+    return render_template(
+        "profile.html",
+        voted_entries=voted_entries,
+        active_campaign=active_campaign
+    )
 
 
 @app.route("/admin_user", methods=["GET", "POST"])

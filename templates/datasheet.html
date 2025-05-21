@@ -4,9 +4,6 @@
 
 <!-- CSS/JS for Lightbox -->
 <link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox-plus-jquery.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
-
 <!-- Image Gallery Styling -->
 <style>
 .image-gallery a {
@@ -53,9 +50,17 @@
     <div class="column is-10">
       <div class="card">
         <header class="card-header has-background-info">
-          <p class="card-header-title has-text-white is-size-5">
-            <span>Adatlap: {{ entry.title }}</span>
-          </p>
+		<p class="card-header-title has-text-white is-size-5">
+			<span class="is-flex-grow-1">Adatlap: {{ entry.title }}</span>
+			<span>
+				<button class="button is-dark is-flex is-align-items-center" id="copyUrlButton">
+				    <span class="icon is-small">
+				        <i class="fa-solid fa-link mr-2"></i>
+				    </span>
+				    <span>Link másolása a vágólapra</span>
+				</button>
+			</span>
+		</p>
         </header>
 
         {% if current_user.role != "regular" %}
@@ -75,7 +80,6 @@
               <span>Megosztás</span>
             </a>
           </div>
-
           <div class="box">
             <div class="columns is-multiline">
               {% set fields = [
@@ -85,7 +89,7 @@
                 ('<i class="fas fa-user"></i> Pályázó neve', entry.applicant_name or '—'),
                 ('<i class="fas fa-folder-open"></i> Kategória', entry.category or '—'),
                 ('<i class="fas fa-info-circle"></i> Állapot', entry.status or '—'),
-                ('<i class="fas fa-hand-holding-usd"></i> Támogatás összege', entry.huf_awarded ~ ' HUF' if entry.huf_awarded else '—'),
+                ('<i class="fas fa-coins"></i> Megítélt támogatás összege', entry.huf_awarded ~ ' HUF' if entry.huf_awarded else '—'),
               ] %}
               {% for label, value in fields %}
               <div class="column is-half">
@@ -140,6 +144,9 @@
     </div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox-plus-jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+<script src="{{ url_for('static', filename='js/misc.js') }}"></script>
 
 {% endblock %}
 

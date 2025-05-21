@@ -60,7 +60,7 @@ class UpdateDatasheetForm(FlaskForm):
     facebook_url = StringField("Facebook esemény linkje", validators=[Optional()])
     category = SelectField("Kategória", choices=CATEGORIES)
     status = SelectField("Állapot", choices=STATES)
-    huf_awarded = IntegerField("Támogatás összege", validators=[Optional()])
+    huf_awarded = IntegerField("Megítélt támogatás összege", validators=[Optional()])
     description = TextAreaField("Projekt leírás", validators=[Optional()])
     img_paths = MultipleFileField("További képek feltöltése", validators=[Optional()])
     submit = SubmitField("Mentés")

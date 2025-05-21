@@ -1,26 +1,59 @@
+/* In static/css/base.css */
+
+html {
+    min-height: 100%; /* Still needed for html to define 100% of viewport */
+    margin: 0;
+    padding: 0;
+    background-image: url('../img/dust.png');
+    background-repeat: repeat;
+    background-attachment: fixed; /* Crucial for background on scroll */
+    background-position: center top; /* Helps align the repeated background */
+}
+
+body {
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.section {
+    flex-grow: 1; /* Still good for ensuring main content stretches */
+}
+
+
 .rubik {
-  font-family: "Rubik Mono One", monospace;
-  font-weight: 300;
-  font-style: normal;
+    font-family: "Rubik Mono One", monospace;
+    font-weight: 300;
+    font-style: normal;
 }
 
 #highlight {
-  color: coral;
-  background: white;
-  border-style: solid;
-  border-color: black;
-  padding: 0.2em;
-  font-size: 1.8em;
-  box-shadow: 9px 4px 0px black;
-  font-family: "Rubik Mono One", monospace;
-  font-weight: 300;
-  font-style: normal;
+    color: coral;
+    background: white; /* This background is specific to the highlight element */
+    border-style: solid;
+    border-color: black;
+    padding: 0.2em;
+    font-size: 1.8em;
+    box-shadow: 9px 4px 0px black;
+    font-family: "Rubik Mono One", monospace;
+    font-weight: 300;
+    font-style: normal;
 }
 
 /* Responsive font size for small screens */
 @media (max-width: 600px) {
-  #highlight {
-    font-size: 1em;
-  }
+    #highlight {
+        font-size: 1em;
+    }
 }
+
+
+.card-image img {
+    object-fit: cover;
+    object-position: top;
+    height: 100%;
+    width: 100%; 
+}
+
+
 
