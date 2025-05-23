@@ -1,0 +1,187 @@
+import logging
+from flask import Blueprint, request, redirect, url_for, flash, render_template, current_app
+from flask_login import login_required, current_user # Assuming Flask-Login
+from werkzeug.utils import secure_filename
+from PIL import Image
+from io import BytesIO
+import uuid
+from datetime import datetime
+
+# --- Constants and Helper Functions (define these globally or in a config) ---
+# Example:
+# from app import db, s3_client, Entry, Campaign, Image as ImageModel
+# from app.forms import EntryForm
+# from app.utils import gen_rosane_id, allowed_file, upload_images_for_entry # Your new image upload function
+
+S3_BUCKET = "your-s3-bucket-name"
+S3_PREFIX = "entry-images"
+MAX_SIZE_MB = 5
+RESIZE_MAX_DIM = 1200
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
+
+# Assuming a placeholder for your gen_rosane_id
+def gen_rosane_id(campain_year, Entry, session):
+    # Your logic to generate a unique ID
+    # For example:
+    # count = session.query(Entry).filter(db.extract('year', Entry.created_at) == campain_year).count()
+    # return f"ROSAN-{campain_year}-{count + 1:04d}"
+    return "ROSAN_TEMP_ID" # Placeholder
+
+# --- Extracted Image Upload Function ---
+# This function would ideally be in a separate module (e.g., `app/utils/image_upload.py`)
+def upload_images_for_entry(entry_id, images_list, s3_client, S3_BUCKET, S3_PREFIX, MAX_SIZE_MB, RESIZE_MAX_DIM):
+    successful_uploads_count = 0
+    image_objects_to_add = [] # List of ImageModel instances
+
+    for image_file in images_list:
+        if not image_file or not image_file.filename: # Skip if no file was selected or filename is empty
+            continue
+
+        original_filename = secure_filename(image_file.filename)
+
+        if not allowed_file(original_filename):
+            flash(f"A(z) '{original_filename}' kép érvénytelen fájltípusú. Csak JPG, JPEG és PNG engedélyezett.", "warning")
+            continue
+
+        file_size_mb = image_file.content_length / (1024 * 1024) if image_file.content_length else 0
+        
+        # Read the file content once
+        buffer_to_upload = BytesIO(image_file.read())
+        buffer_to_upload.seek(0) # Reset buffer position
+
+        # Image resizing if needed
+        if file_size_mb >= MAX_SIZE_MB:
+            try:
+                img = Image.open(buffer_to_upload)
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGB')
+                img_format = img.format if img.format else 'JPEG'
+                img.thumbnail((RESIZE_MAX_DIM, RESIZE_MAX_DIM))
+                
+                resized_buffer = BytesIO()
+                save_format = 'PNG' if img_format == 'PNG' else 'JPEG'
+                img.save(resized_buffer, format=save_format, optimize=True)
+                resized_buffer.seek(0)
+                buffer_to_upload = resized_buffer
+                logging.info(f"Resized image '{original_filename}' from {file_size_mb:.2f}MB.")
+            except Exception as e:
+                logging.error(f"Error processing image '{original_filename}' for entry {entry_id}: {e}")
+                flash(f"Hiba történt a(z) '{original_filename}' kép feldolgozása során. Kérjük, próbálja újra.", "warning")
+                continue
+
+        # Generate unique S3 key
+        unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}_{original_filename}"
+        s3_key = f"{S3_PREFIX}/{entry_id}/{unique_filename}"
+        img_url = f"https://{S3_BUCKET}/{s3_key}"
+
+        # Upload to S3
+        try:
+            s3_client.upload_fileobj(
+                Fileobj=buffer_to_upload,
+                Bucket=S3_BUCKET,
+                Key=s3_key,
+                ExtraArgs={'ContentType': image_file.content_type} # Set content type for browser
+            )
+            # Create database object, assuming 'ImageModel' is your SQLAlchemy model
+            new_image = ImageModel(entry_id=entry_id, file_name=unique_filename, url=img_url)
+            image_objects_to_add.append(new_image)
+            successful_uploads_count += 1
+        except Exception as e:
+            logging.error(f"Error uploading '{original_filename}' to S3 for entry {entry_id}: {e}")
+            flash(f"Hiba történt a(z) '{original_filename}' kép feltöltése során. Kérjük, próbálja újra.", "warning")
+
+    return image_objects_to_add, successful_uploads_count
+
+
+# --- Main Route Function ---
+
+# @entry_bp.route("/new", methods=["GET"]) # For displaying the form
+# @entry_bp.route("/", methods=["POST"])   # For submitting the form
+@app.route("/entries/new", methods=["GET", "POST"]) # Unified route for simplicity
+@login_required
+def create_entry():
+    form = EntryForm() # Assuming EntryForm is imported from app.forms or similar
+
+    # Always fetch the active campaign first
+    active_campaign = Campaign.query.filter_by(status="aktív").first()
+    if not active_campaign:
+        flash("Jelenleg nincs aktív kampány! Kérjük, vegye fel a kapcsolatot az adminisztrátorral.", "danger")
+        return redirect(url_for("index")) # Or a dedicated error page
+
+    if form.validate_on_submit():
+        # Process POST request (form submission)
+        try:
+            # 1. Create the new Entry object
+            new_entry = Entry(
+                campaign_id=active_campaign.id,
+                # Use current_user.id if you need to associate the entry with the logged-in user
+                # user_id=current_user.id,
+                title=form.title.data, # Access data directly from form fields
+                description=form.description.data,
+                full_address=form.full_address.data,
+                category=form.category.data,
+                city=form.city.data,
+                county=form.county.data,
+                zipcode=form.zipcode.data,
+                lat=form.lat.data,
+                lng=form.lng.data,
+                status=form.status.data,
+                applicant_name=form.applicant_name.data,
+                facebook_url=form.facebook_url.data,
+                rosan_id=gen_rosane_id(
+                    campain_year=active_campaign.from_date.year,
+                    Entry=Entry, # Pass the Entry model
+                    session=db.session
+                ),
+            )
+
+            db.session.add(new_entry)
+            db.session.commit() # Commit the entry first to get an ID
+
+            # 2. Handle image uploads using the dedicated function
+            # Only proceed if there are images to upload
+            if form.images.data and form.images.data[0].filename: # Check if any file was actually selected
+                images_to_add_to_db, successful_count = upload_images_for_entry(
+                    entry_id=new_entry.id,
+                    images_list=form.images.data,
+                    s3_client=s3_client, # Pass necessary dependencies
+                    S3_BUCKET=S3_BUCKET,
+                    S3_PREFIX=S3_PREFIX,
+                    MAX_SIZE_MB=MAX_SIZE_MB,
+                    RESIZE_MAX_DIM=RESIZE_MAX_DIM
+                )
+
+                if images_to_add_to_db:
+                    db.session.add_all(images_to_add_to_db)
+                    db.session.commit() # Commit image objects
+                    if successful_count > 0:
+                        flash(f"A bejegyzés és {successful_count} kép sikeresen létrehozva!", "success")
+                elif successful_count == 0:
+                    flash("A bejegyzés sikeresen létrehozva, de egyetlen kép sem tölthető fel.", "warning")
+
+            else:
+                flash("A bejegyzés sikeresen létrehozva!", "success") # Message if no images uploaded
+
+            # Redirect to the newly created entry's detail page
+            return redirect(url_for("adatlap", entry_id=new_entry.id)) # Redirect to the specific entry view
+
+        except Exception as e:
+            db.session.rollback() # Rollback the entry creation if anything fails
+            logging.error(f"Hiba történt a bejegyzés létrehozása során: {e}")
+            flash(f"Hiba történt a bejegyzés mentése során: {e}", "danger")
+            # If an error occurs, re-render the form with existing data if possible,
+            # or redirect to the same page to show the error.
+            return redirect(request.url) # Reloads the form with flash messages
+
+    # For GET request or if form validation failed (POST)
+    # The form instance will carry validation errors to the template
+    return render_template(
+        "form.html",
+        form=form,
+        MAPBOX_KEY=current_app.config.get('MAPBOX_KEY'), # Access from app config
+        START_LNG=current_app.config.get('START_LNG'),
+        START_LAT=current_app.config.get('START_LAT'),
+    )

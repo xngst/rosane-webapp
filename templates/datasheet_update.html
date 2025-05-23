@@ -168,41 +168,45 @@
               </div>
 
               <!-- Images -->
-              <div class="column is-full">
-                <hr>
-                <p class="mb-2"><i class="fas fa-image"></i> <strong>Feltöltött képek</strong></p>
-                <div class="columns is-multiline">
-                  {% for image in images %}
-                    <div class="column is-one-quarter">
-                      <div class="card">
-                        <div class="card-image">
-                          <figure class="image is-4by3">
-                            <a href="{{ image.url }}" data-lightbox="gallery">
-                              <img src="{{ image.url }}" alt="{{ image.file_name }}">
-                            </a>
-                          </figure>
-                        </div>
-                        <div class="card-content">
-                          <div class="level is-mobile">
-                            <div class="level-right">
-                              <form method="POST" action="{{ url_for('delete_image', image_id=image.id) }}" style="display:inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button class="button is-danger is-small" type="submit" onclick="return confirm('Biztosan törölni szeretnéd ezt a képet?')">
-                                  <i class="fas fa-trash-alt"></i> Törlés
-                                </button>
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  {% else %}
-                    <p><i class="fas fa-ban"></i> Nincsenek feltöltött képek.</p>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-            <hr>
+				<div class="column is-full">
+               <hr>
+               <p class="mb-2"><i class="fas fa-image"></i> <strong>Feltöltött képek</strong></p>
+               <div class="columns is-multiline">
+                 {% for image in images %}
+                   <div class="column is-one-quarter">
+                     <div class="card">
+                       <div class="card-image">
+                         <figure class="image is-4by3">
+                           <a href="{{ image.url }}" data-lightbox="gallery">
+                             <img src="{{ image.url }}" alt="{{ image.file_name }}">
+                           </a>
+                         </figure>
+                       </div>
+                       <div class="card-content">
+                         <div class="level is-mobile">
+                           <div class="level-right">
+                             <form method="POST" action="{{ url_for('delete_image', image_id=image.id) }}" style="display:inline;">
+                               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                               <button class="button is-danger is-small" type="submit" onclick="return confirm('Biztosan törölni szeretnéd ezt a képet?')">
+                                 <i class="fas fa-trash-alt"></i> Törlés
+                               </button>
+                             </form>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                 {% else %}
+                   <p><i class="fas fa-ban"></i> Nincsenek feltöltött képek.</p>
+                 {% endfor %}
+               </div>
+               <div class="has-text-centered mt-4">
+                 <a href="{{ url_for('upload_image_route', entry_id=entry.id) }}" class="button is-primary">
+                   <i class="fas fa-plus mr-2"></i> Képek feltöltése
+                 </a>
+               </div>
+             </div>
+             <hr>
             
           </form>
           {% if current_user.role == "admin" %}

@@ -4,6 +4,7 @@ RÓSÁNÉ backend
 # BULT-INS
 import json
 import os
+import uuid
 from datetime import datetime
 from dotenv import load_dotenv
 from functools import wraps
@@ -47,6 +48,8 @@ from forms import EntryForm
 from forms import UpdateDatasheetForm
 from forms import CampaignForm
 from forms import UpdateEntryForm
+from forms import UploadImageForm
+
 from flask_wtf.csrf import CSRFProtect
 
 # SEC
@@ -65,29 +68,23 @@ from utils import allowed_file, gen_rosane_id, resize_image
 # CONFIG
 load_dotenv()
 
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-
-ENV = os.getenv("ENV")
 MAPBOX_KEY = os.getenv("MAPBOX_KEY")
 START_LNG = os.getenv("START_LNG")
 START_LAT = os.getenv("START_LAT")
-MAX_SIZE_MB = int(os.getenv("MAX_SIZE_MB"))
-RESIZE_MAX_DIM = os.getenv("RESIZE_MAX_DIM")
-NEON_CONNECT_STRING = os.getenv("NEON_CONNECT_STRING")
-S3_REGION = os.getenv("S3_REGION")
-S3_PREFIX = os.getenv("S3_PREFIX")
-S3_BUCKET = os.getenv("S3_BUCKET")
-S3_ACCESS_PATH = f"https://{S3_BUCKET}"
 
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config["UPLOAD_FOLDER"] = "static/uploads/"
-app.config["SQLALCHEMY_DATABASE_URI"] = NEON_CONNECT_STRING
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("NEON_CONNECT_STRING")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024 
-app.config['S3_BUCKET'] = S3_BUCKET
+app.config['S3_BUCKET'] = os.getenv("S3_BUCKET")
 app.config['S3_REGION'] = os.getenv("S3_REGION")
+app.config['S3_PREFIX'] = os.getenv("S3_PREFIX")
+app.config['S3_ACCESS_KEY_ID'] = os.getenv("S3_ACCESS_KEY_ID")
+app.config['S3_SECRET_ACCESS_KEY'] = os.getenv("S3_SECRET_ACCESS_KEY")
+app.config['MAX_SIZE_MB'] = int(os.getenv("MAX_SIZE_MB"))
+app.config['RESIZE_MAX_DIM'] = os.getenv("RESIZE_MAX_DIM")
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 'pool_pre_ping': True,
 'pool_size': 10,
@@ -98,28 +95,133 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 app.register_blueprint(google_bp, url_prefix="/login")
 app.register_blueprint(facebook_bp, url_prefix="/login")
 
+ENV = os.getenv("ENV")
 if ENV == "prod":
     app.config['SERVER_NAME'] = 'rosane.life'
     app.config['PREFERRED_URL_SCHEME'] = 'https'
+    
+if ENV == "test":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 s3_client = boto3.client(
     's3',
-    region_name=S3_REGION,
-    aws_access_key_id=os.getenv("S3_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("S3_SECRET_ACCESS_KEY")
+    region_name=app.config['S3_REGION'],
+    aws_access_key_id=app.config['S3_ACCESS_KEY_ID'],
+    aws_secret_access_key=app.config['S3_SECRET_ACCESS_KEY']
 )
 migrate = Migrate(app, db)
 db.init_app(app)
 
 login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 csrf = CSRFProtect(app)
 
-@app.route("/test", methods=["GET", "POST"])
-def test():
-    active_campaign = Campaign.query.filter_by(status="aktív").first()
-    print(active_campaign.from_date.year)
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
-@app.route("/", methods=["GET", "POST"])
+def datestamp():
+    return datetime.now().strftime("%Y-%m-%d")
+    
+#-------------------
+#-------------------
+def handle_image_upload(image_files, entry_id):
+    successful_uploads_count = 0
+    image_objects_to_add = []
+    
+    for image_file in image_files:
+        if not image_file:
+            continue
+
+        original_filename = secure_filename(image_file.filename)
+
+        if not allowed_file(original_filename):
+            flash(f"Érvénytelen fájltípus. Csak JPG, JPEG és PNG engedélyezett.", "warning")
+            continue
+
+        file_size_mb = image_file.content_length / (1024 * 1024) if image_file.content_length else 0
+        buffer_to_upload = BytesIO(image_file.read())
+        image_file.seek(0)
+
+        if file_size_mb >= app.config['MAX_SIZE_MB']:
+            try:
+                img = Image.open(buffer_to_upload)
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGB')
+
+                img_format = img.format if img.format else 'JPEG'
+                img.thumbnail((app.config['RESIZE_MAX_DIM'], app.config['RESIZE_MAX_DIM']))
+
+                resized_buffer = BytesIO()
+                save_format = 'PNG' if img_format == 'PNG' else 'JPEG'
+                img.save(resized_buffer, format=save_format, optimize=True)
+                resized_buffer.seek(0)
+                buffer_to_upload = resized_buffer
+            except Exception as e:
+                flash(f"Hiba történt '{original_filename}' kép feldolgozása során. {e}", "warning")
+                continue
+
+        unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}_{original_filename}"
+        s3_key = f"{app.config['S3_PREFIX']}/{entry_id}/{unique_filename}"
+        img_url = f"https://{app.config['S3_BUCKET']}/{s3_key}"
+
+        try:
+            s3_client.upload_fileobj(
+                Fileobj=buffer_to_upload,
+                Bucket=app.config['S3_BUCKET'],
+                Key=s3_key,
+                ExtraArgs={'ContentType': image_file.content_type}
+            )
+
+            new_image = Image(entry_id=entry_id, file_name=unique_filename, url=img_url)
+            image_objects_to_add.append(new_image)
+            successful_uploads_count += 1
+
+        except Exception as e:
+            flash(f"Hiba történt a kép feltöltése során.", "warning")
+
+    if image_objects_to_add:
+        try:
+            db.session.add_all(image_objects_to_add)
+            db.session.commit()
+            flash(f"{successful_uploads_count} kép sikeresen feltöltve!", "success")
+            return True
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Hiba történt a képek adatbázisba mentése során: {e}", "danger")
+            return False
+    elif successful_uploads_count == 0:
+        flash("Nincs kép feltöltve vagy minden kép feltöltése sikertelen volt.", "info")
+        return False
+    return True
+
+#-------------------
+#UPLOAD IMAGES
+#-------------------
+@app.route("/entries/<int:entry_id>/images", methods=["GET", "POST"])
+@login_required
+def upload_image_route(entry_id):
+    entry = Entry.query.get_or_404(entry_id)
+    form = UploadImageForm()
+
+    if form.validate_on_submit():
+        images = form.images.data
+        
+        if images:
+            success = handle_image_upload(images, entry_id)
+            if success:
+                return redirect(url_for("adatlap", entry_id=entry_id))
+            else:
+                return redirect(request.url)
+            return redirect(request.url)
+    else: 
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"Hiba '{form[field].label.text}' mezőben: {error}", "danger")
+        
+    return render_template("upload_image.html", form=form, entry=entry)  
+
+@app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
 
@@ -133,38 +235,6 @@ def logout():
     logout_user()
     flash("Sikeresen kijelentkezve", "info")
     return redirect(url_for("index"))
-
-@app.route("/like/<int:entry_id>", methods=["POST"])
-@login_required
-def like(entry_id):
-    entry = Entry.query.get_or_404(entry_id)
-
-    active_campaign = Campaign.query.filter_by(status="aktív").first()
-
-    user_has_liked_entry = Like.query.filter(
-        Like.user_id == current_user.id,
-        Like.entry_id == entry.id,
-        Like.campaign_id == active_campaign.id
-    ).first()
-
-    if not user_has_liked_entry:
-        entry.like_count += 1
-
-        new_like = Like(user_id=current_user.id, entry_id=entry.id, campaign_id=active_campaign.id)
-        db.session.add(new_like)
-        db.session.commit()
-
-        flash(f"Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!", "success")
-        return redirect(url_for('applications'))
-    else:
-        flash(f"Egy pályázatra csak egy szavazat adható le!", "danger")
-        return redirect(url_for('applications'))
-    
-def check_role(role):
-    if current_user.role != role:
-        return False
-    else:
-        return True
 
 @app.route("/welcome")
 def welcome():
@@ -198,8 +268,36 @@ def welcome():
 
     login_user(user)
     return render_template("index.html")
+    
 
 
+@app.route("/like/<int:entry_id>", methods=["POST"])
+@login_required
+def like(entry_id):
+    entry = Entry.query.get_or_404(entry_id)
+
+    active_campaign = Campaign.query.filter_by(status="aktív").first()
+
+    user_has_liked_entry = Like.query.filter(
+        Like.user_id == current_user.id,
+        Like.entry_id == entry.id,
+        Like.campaign_id == active_campaign.id
+    ).first()
+
+    if not user_has_liked_entry:
+        entry.like_count += 1
+
+        new_like = Like(user_id=current_user.id, entry_id=entry.id, campaign_id=active_campaign.id)
+        db.session.add(new_like)
+        db.session.commit()
+
+        flash(f"Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!", "success")
+        return redirect(url_for('applications'))
+    else:
+        flash(f"Egy pályázatra csak egy szavazat adható le!", "danger")
+        return redirect(url_for('applications'))
+    
+   
 @app.route("/terkep", methods=["GET", "POST"])
 def map():
     entries = Entry.query.all()
@@ -242,7 +340,7 @@ def applications():
     return render_template("applications.html", entries=entries)
 
 
-@app.route("/profil", methods=["GET", "POST"])
+@app.route("/profil", methods=["GET"])
 @login_required
 def profil():
 
@@ -309,11 +407,8 @@ def delete_entry(entry_id):
 @login_required
 def update_datasheet(entry_id):
     entry = Entry.query.get_or_404(entry_id)
-
     images = Image.query.filter_by(entry_id=entry.id).all()
-  
     form = UpdateDatasheetForm(obj=entry) 
-    
     if form.validate_on_submit():
 
         #entry.full_address = form.full_address.data
@@ -359,13 +454,6 @@ def update_address(entry_id):
         return redirect(
             url_for("adatlap", entry_id=entry.id)
         )
-    
-    """
-    if entry.lat:
-        START_LAT = entry.lat
-    if entry.lng:
-        START_LNG = entry.lng
-    """
     
     return render_template("update_address.html", 
     form=form, 
@@ -442,58 +530,29 @@ def entry_form():
         try:
             db.session.commit()
             entry_id = new_entry.id
-            entry_folder = os.path.join(app.config["UPLOAD_FOLDER"], str(entry_id))
-            os.makedirs(entry_folder, exist_ok=True)
             images = form.images.data
 
-            image_objects = []
-
-            for image_file in images:
-                filename = secure_filename(image_file.filename)
-
-                if not allowed_file(filename):
-                    flash("Csak JPG and PNG kiterjesztéseket lehet feltölteni.")
-                    return redirect(request.url)
-
-                file_size_mb = image_file.content_length / (1024 * 1024) if image_file.content_length else 0
-                buffer_to_upload = image_file  # Default to the original file
-
-                if file_size_mb >= MAX_SIZE_MB:
-                    try:
-                        img = Image.open(image_file)  # Open the FileStorage object
-                        img_format = img.format
-                        img.thumbnail((RESIZE_MAX_DIM, RESIZE_MAX_DIM))
-                        buffer = BytesIO()
-                        img.save(buffer, format=img_format, optimize=True)
-                        buffer.seek(0)
-                        buffer_to_upload = buffer  # Use the resized buffer for upload
-                    except Exception as e:
-                        flash(f"Hiba történt a képfeldolgozás során: {e}", "warning")
-                        pass
-
-                s3_key = f"{S3_PREFIX}/{entry_id}_{filename}"
-                img_url = f"https://{S3_BUCKET}/{s3_key}"
-                
-                s3_client.upload_fileobj(
-                    Fileobj=buffer_to_upload,
-                    Bucket=S3_BUCKET,
-                    Key=s3_key,
-                )
-
-                new_image = Image(entry_id=new_entry.id, file_name=filename, url=img_url)
-                image_objects.append(new_image)
-
-            db.session.add_all(image_objects)
-            db.session.commit()
+            if images:
+                success = handle_image_upload(images, entry_id)
+                if not success:
+                    flash("Hiba történt a képek feltöltése közben!", "danger")
+                    pass 
+            
             flash("Sikeres hozzáadás!", "success")
             return redirect(url_for("entry_form"))
 
         except Exception as e:
             db.session.rollback()
             flash(f"Hiba történt a mentés során: {e}", "danger")
+            return render_template(
+                "form.html",
+                form=form,
+                MAPBOX_KEY=MAPBOX_KEY,
+                START_LNG=START_LNG,
+                START_LAT=START_LAT,
+            )
         finally:
             db.session.close()
-            return redirect(request.url)
 
     return render_template(
         "form.html",
@@ -502,6 +561,91 @@ def entry_form():
         START_LNG=START_LNG,
         START_LAT=START_LAT,
     )
+  
+
+    
+
+@app.route("/entries/<int:entry_id>/images", methods=["POST"])
+@login_required
+def upload_image(entry_id):
+    form = UploadImageForm()
+
+    if form.validate_on_submit():
+        images = form.images.data 
+
+        successful_uploads_count = 0
+        image_objects_to_add = []
+
+        for image_file in images:
+            if not image_file:
+                continue
+
+            original_filename = secure_filename(image_file.filename)
+
+            if not allowed_file(original_filename):
+                flash(f"A(z) '{original_filename}' kép érvénytelen fájltípusú. Csak JPG, JPEG és PNG engedélyezett.", "warning")
+                continue
+
+            file_size_mb = image_file.content_length / (1024 * 1024) if image_file.content_length else 0
+            buffer_to_upload = BytesIO(image_file.read())
+            image_file.seek(0)
+
+            if file_size_mb >= MAX_SIZE_MB:
+                try:
+                    img = Image.open(buffer_to_upload)
+                    if img.mode not in ('RGB', 'RGBA'):
+                        img = img.convert('RGB')
+
+                    img_format = img.format if img.format else 'JPEG'
+                    img.thumbnail((RESIZE_MAX_DIM, RESIZE_MAX_DIM))
+
+                    resized_buffer = BytesIO()
+                    save_format = 'PNG' if img_format == 'PNG' else 'JPEG'
+                    img.save(resized_buffer, format=save_format, optimize=True)
+                    resized_buffer.seek(0)
+                    buffer_to_upload = resized_buffer
+                except Exception as e:
+                    flash(f"Hiba történt a(z) '{original_filename}' kép feldolgozása során. Kérjük, próbálja újra.", "warning")
+                    continue
+
+            # Generate unique S3 key
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}_{original_filename}"
+            s3_key = f"{S3_PREFIX}/{entry_id}/{unique_filename}"
+            img_url = f"https://{S3_BUCKET}/{s3_key}"
+
+            try:
+                s3_client.upload_fileobj(
+                    Fileobj=buffer_to_upload,
+                    Bucket=S3_BUCKET,
+                    Key=s3_key,
+                    ExtraArgs={'ContentType': image_file.content_type}
+                )
+
+                new_image = ImageModel(entry_id=entry_id, file_name=unique_filename, url=img_url)
+                image_objects_to_add.append(new_image)
+                successful_uploads_count += 1
+
+            except Exception as e:
+                flash(f"Hiba történt a(z) '{original_filename}' kép feltöltése során. Kérjük, próbálja újra.", "warning")
+
+        if image_objects_to_add:
+            try:
+                db.session.add_all(image_objects_to_add)
+                db.session.commit()
+                flash(f"{successful_uploads_count} kép sikeresen feltöltve!", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash("Hiba történt a képek adatbázisba mentése során.", "danger")
+        elif successful_uploads_count == 0:
+            flash("Nincs kép feltöltve vagy minden kép feltöltése sikertelen volt.", "info")
+
+        return redirect(url_for("adatlap", entry_id=entry_id))
+
+    else: 
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"Hiba a(z) '{form[field].label.text}' mezőben: {error}", "danger")
+        return redirect(request.url)   
 
 # CAMPAIGN
 @app.route("/campaign/")
@@ -580,26 +724,15 @@ def campaign_delete(campaign_id):
     flash("Campaign deleted successfully!", "success")
     return redirect(url_for("campaign_list"))
 
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
 @app.errorhandler(413)
 def request_entity_too_large(error):
     return "A feltöltött fájl túl nagy (max 5MB)!", 413
 
-def datestamp():
-    return datetime.now().strftime("%Y-%m-%d")
-
 @app.errorhandler(404)
 def not_found(e):
-  return render_template("error_404.html")
-
+  return render_template("error/error_404.html")
 
 if __name__ == "__main__":
-    if not os.path.exists(app.config["UPLOAD_FOLDER"]):
-        os.makedirs(app.config["UPLOAD_FOLDER"])
     with app.app_context():
         db.create_all()
     if ENV == "test":

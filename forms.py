@@ -21,6 +21,7 @@ from wtforms import (
     DateTimeField,
 )
 from wtforms.validators import DataRequired, URL, NumberRange, Optional
+from flask_wtf.file import FileField, FileAllowed, FileRequired
 
 class EntryForm(FlaskForm):
     title = StringField(
@@ -65,6 +66,9 @@ class UpdateDatasheetForm(FlaskForm):
     img_paths = MultipleFileField("További képek feltöltése", validators=[Optional()])
     submit = SubmitField("Mentés")
 
+class UploadImageForm(FlaskForm):
+    images = MultipleFileField("Képek", validators=[DataRequired()])
+    submit = SubmitField('Feltöltés')
 
 class CampaignForm(FlaskForm):
     name = StringField("Név", validators=[DataRequired()])
@@ -79,4 +83,4 @@ class CampaignForm(FlaskForm):
     def validate_from_date(form, field):
         if form.from_date.data and form.to_date.data:
             if form.from_date.data > form.to_date.data:
-                raise ValidationError("From Date cannot be after To Date")
+                raise ValidationError("Nem kezdődhet előbb mint ahog befejeződik!")

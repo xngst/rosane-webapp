@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}401{% endblock %}
+{% block content %}
+
+<div class="container">
+<div class="card">
+<p class="notification is-danger is-size-4 has-text-centered">Ezt az oldalt ellopták!</p>
+<img src="{{ url_for('static', filename='img/rózsa404.webp') }}" alt="401">
+</div>
+</div>
+
+{% endblock %}
