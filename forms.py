@@ -37,6 +37,7 @@ class EntryForm(FlaskForm):
     images = MultipleFileField("Images", validators=[DataRequired()])
     category = SelectField("Category", choices=CATEGORIES)
     status = SelectField("Status", choices=STATES)
+    campaign_selection = SelectField("Kampány", validators=[DataRequired()])
     city = HiddenField("City")
     county = HiddenField("County")
     zipcode = HiddenField("Zipcode")
@@ -47,6 +48,7 @@ class EntryForm(FlaskForm):
 class UpdateEntryForm(FlaskForm):
     full_address = StringField("Helyszín", validators=[DataRequired()])
     city = HiddenField("City", validators=[DataRequired()])
+    campaign_selection = SelectField("Kampány", validators=[DataRequired()])
     county = HiddenField("County", validators=[DataRequired()])
     zipcode = HiddenField("Zipcode", validators=[DataRequired()])
     lat = HiddenField("Lat", validators=[DataRequired()])
@@ -54,7 +56,7 @@ class UpdateEntryForm(FlaskForm):
     
 class UpdateDatasheetForm(FlaskForm):
     full_address = StringField("Helyszín", validators=[Optional()])
-    #campaign = StringField("Kampány", validators=[Optional()])
+    campaign_selection = SelectField("Kampány", validators=[DataRequired()])
     rosan_id = StringField("Azonosító", validators=[Optional()])
     title = StringField("Pályázat neve", validators=[Optional()])
     applicant_name = StringField("Pályázó neve", validators=[Optional()])

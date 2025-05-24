@@ -13,7 +13,7 @@ class Campaign(db.Model):
     from_date = db.Column(db.DateTime)
     to_date = db.Column(db.DateTime)
     status = db.Column(db.String(256))
-    name = db.Column(db.String(256))
+    name = db.Column(db.String(256),unique=True)
     description = db.Column(db.String())
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

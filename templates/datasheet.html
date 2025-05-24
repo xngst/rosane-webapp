@@ -83,6 +83,7 @@
           <div class="box">
             <div class="columns is-multiline">
               {% set fields = [
+                ('<i class="fas fa-bullhorn"></i> Kampány', entry.campaign.name if entry.campaign else '—'),
                 ('<i class="fas fa-map-marker-alt"></i> Helyszín', entry.full_address or '—'),
                 ('<i class="fas fa-hashtag"></i> Azonosító', entry.rosan_id),
                 ('<i class="fas fa-thumbs-up"></i> Kedvelések száma', entry.like_count or '—'),

@@ -153,6 +153,20 @@
                   {% endfor %}
                 </div>
               </div>
+              
+                <div class="column is-half">
+                    <div class="field{% if form.campaign_selection.errors %} is-danger{% endif %}">
+                        <label class="label"><i class="fas fa-bullhorn"></i> {{ form.campaign_selection.label }}</label>
+                        <div class="control">
+                            <div class="select is-fullwidth{% if form.campaign_selection.errors %} is-danger{% endif %}">
+                                {{ form.campaign_selection }}
+                            </div>
+                        </div>
+                        {% for error in form.campaign_selection.errors %}
+                            <p class="help is-danger">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>              
 
               <!-- Description -->
               <div class="column is-full">

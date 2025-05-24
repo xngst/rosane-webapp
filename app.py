@@ -114,6 +114,7 @@ db.init_app(app)
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+login_manager.login_message = "Tessék csak tessék!"
 csrf = CSRFProtect(app)
 
 @login_manager.user_loader
@@ -408,14 +409,23 @@ def delete_entry(entry_id):
 def update_datasheet(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     images = Image.query.filter_by(entry_id=entry.id).all()
-    form = UpdateDatasheetForm(obj=entry) 
-    if form.validate_on_submit():
+    campaigns = Campaign.query.all()
+    form = UpdateDatasheetForm(obj=entry)
+    
+    current_id = str(entry.campaign.id)
+    campaign_list = [(str(c.id), c.name) for c in campaigns if str(c.id) != current_id]
+    campaign_list.insert(0, (current_id, entry.campaign.name))
+    form.campaign_selection.choices = campaign_list
 
-        #entry.full_address = form.full_address.data
+    if form.validate_on_submit():
+    
+        selected_campaign_id = int(form.campaign_selection.data)
+        
         entry.rosan_id = form.rosan_id.data
         entry.applicant_name = form.applicant_name.data
         entry.facebook_url = form.facebook_url.data
         entry.category = form.category.data
+        entry.campaign_id = selected_campaign_id        
         entry.status = form.status.data
         entry.huf_awarded = form.huf_awarded.data
         entry.description = form.description.data
@@ -496,16 +506,21 @@ def delete_image(image_id):
 def entry_form():
     form = EntryForm()
 
-    active_campaign = Campaign.query.filter_by(status="aktív").first()
-    if not active_campaign:
-        flash("Minimum egy aktív kampánynak léteznie kell!", "danger")
-        return redirect(url_for("index"))
-
+    campaigns = Campaign.query.all()
+    form.campaign_selection.choices = [(str(c.id), c.name) for c in campaigns]
+    
     if form.validate_on_submit():
         entry_data = form.data
+        selected_campaign_id = int(entry_data['campaign_selection'])
+        selected_campaign = Campaign.query.get(selected_campaign_id)        
+
+        if not selected_campaign:
+            flash("Érvénytelen kampány választás!", "danger")
+            return redirect(url_for("entry_form"))
 
         new_entry = Entry(
-            campaign_id=active_campaign.id,
+            campaign_id=selected_campaign.id,
+            submitted_by_id=current_user.id,
             title=entry_data['title'],
             description=entry_data['description'],
             full_address=entry_data['full_address'],
@@ -519,7 +534,7 @@ def entry_form():
             applicant_name=entry_data['applicant_name'],
             facebook_url=entry_data['facebook_url'],
             rosan_id=gen_rosane_id(
-                campain_year=active_campaign.from_date.year,
+                campain_year=selected_campaign.from_date.year,
                 Entry=Entry,
                 session=db.session
             ),
@@ -550,6 +565,7 @@ def entry_form():
                 MAPBOX_KEY=MAPBOX_KEY,
                 START_LNG=START_LNG,
                 START_LAT=START_LAT,
+                campaigns=campaigns
             )
         finally:
             db.session.close()
@@ -560,6 +576,7 @@ def entry_form():
         MAPBOX_KEY=MAPBOX_KEY,
         START_LNG=START_LNG,
         START_LAT=START_LAT,
+        campaigns=campaigns
     )
   
 
@@ -729,8 +746,12 @@ def request_entity_too_large(error):
     return "A feltöltött fájl túl nagy (max 5MB)!", 413
 
 @app.errorhandler(404)
-def not_found(e):
+def err404(e):
   return render_template("error/error_404.html")
+  
+@app.errorhandler(401)
+def err401(e):
+  return render_template("error/error_401.html")
 
 if __name__ == "__main__":
     with app.app_context():

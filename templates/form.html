@@ -99,6 +99,19 @@
             <p class="help is-danger" id="facebook-url-error">{{ error }}</p>
         {% endfor %}
     </div>
+    
+    <div class="field">
+        <label class="label">Kampány</label>
+        <div class="control has-icons-left">
+            <div class="select is-fullwidth">
+                {{ form.campaign_selection() }}
+            </div>
+            <span class="icon is-left"><i class="fas fa-calendar-alt"></i></span>
+        </div>
+        {% for error in form.campaign_selection.errors %}
+            <p class="help is-danger">{{ error }}</p>
+        {% endfor %}
+    </div>      
 
     <div class="field">
         <label class="label"><marker>Státusz</marker></label>
@@ -109,7 +122,7 @@
             <span class="icon is-left"><i class="fas fa-check-circle"></i></span>
         </div>
     </div>
-
+     
     <div class="field">
         <label class="label"><marker>Helyszín</marker></label>
         <div class="control has-icons-left">
