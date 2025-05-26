@@ -63,12 +63,14 @@
 		</p>
         </header>
 
-        {% if current_user.role != "regular" %}
+        {% if current_user.is_authenticated %}
+        {% if current_user.is_assigned_to_active_campaign() or current_user.role == "admin" %}
         <a href="{{ url_for('update_datasheet', entry_id=entry.id) }}" class="card-header-item is-active">
           <div class="tags are-medium">
             <span class="tag"><i class="fas fa-edit me-1"></i> Szerkesztés</span>
           </div>
         </a>
+        {% endif %}
         {% endif %}
 
         <div class="card-content">

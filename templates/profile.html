@@ -26,7 +26,11 @@
         <hr>
         <div class="content">
             <p><strong><i class="fas fa-calendar-plus mr-2"></i> Létrehozva:</strong> {{ current_user.created_date.strftime("%Y. %m. %d.") }}</p>
+            <p><strong><i class="fas fa-user-tag mr-2"></i> Email:</strong> {{ current_user.email }}</p>
             <p><strong><i class="fas fa-user-tag mr-2"></i> Jogosultság:</strong> {{ current_user.role }}</p>
+            {% if current_user.role == "dementor" %}
+            <p><strong><i class="fas fa-user-tag mr-2"></i> Aktív kampányhoz rendelve:</strong> {{ current_user.is_assigned_to_active_campaign() }}</p>
+            {% endif %}
         </div>
     </div>
 

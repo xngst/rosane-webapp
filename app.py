@@ -172,7 +172,7 @@ def process_oauth_login(user_email, given_name, family_name):
     flash(f"Sikeres bejelentkezés, {user.user_given_name}!", "success")
     return redirect(url_for("index"))
 
-
+#OATUH
 @app.route("/oauth_callback")
 def oauth_callback():
     try:
@@ -703,20 +703,61 @@ def campaign_delete(campaign_id):
 @app.route("/admin_user", methods=["GET", "POST"])
 @login_required
 def admin_user():
+    if current_user.role != "admin":
+        flash("Nincs jogosultságod ehhez a művelethez!", "danger")
+        return redirect(url_for("admin_user"))
     users = User.query.all()
-    return render_template("admin_user.html", users=users)
+    campaigns = Campaign.query.all()
+    campaigns_data = [{'id': c.id, 'name': c.name} for c in campaigns]
+    return render_template("admin_user.html", users=users, campaigns=campaigns_data)
 
-# UPDATE ROLE
+
 @app.route("/update_role/<int:user_id>", methods=["POST"])
 @login_required
 def update_role(user_id):
+    if current_user.role != "admin":
+        flash("Nincs jogosultságod ehhez a művelethez!", "danger")
+        return redirect(url_for("admin_user"))
+
     new_role = request.form.get("role")
     user = User.query.get_or_404(user_id)
     if new_role in ["admin", "dementor", "regular"]:
         user.role = new_role
         db.session.commit()
         flash("Jogosultsági szint sikeresen megváltoztatva!", "success")
+    else:
+        flash("Érvénytelen jogosultsági szint!", "danger")
     return redirect(url_for("admin_user"))
+
+@app.route("/update_campaign/<int:user_id>", methods=["POST"])
+@login_required
+def update_campaign(user_id):
+    if current_user.role != "admin":
+        flash("Nincs jogosultságod ehhez a művelethez!", "danger")
+        return redirect(url_for("admin_user"))
+
+    new_campaign_id_str = request.form.get("campaign_id")
+    user = User.query.get_or_404(user_id)
+
+    if new_campaign_id_str:
+        try:
+            new_campaign_id = int(new_campaign_id_str)
+            campaign = Campaign.query.get(new_campaign_id)
+            if campaign:
+                user.campaign_id = new_campaign_id
+                db.session.commit()
+                flash(f"Felhasználó '{user.email}' kampánya sikeresen megváltoztatva!", "success")
+            else:
+                flash("A kiválasztott kampány nem létezik!", "danger")
+        except ValueError:
+            flash("Érvénytelen kampány azonosító!", "danger")
+    else:
+        user.campaign_id = None
+        db.session.commit()
+        flash(f"Felhasználó '{user.email}' kampánya sikeresen eltávolítva!", "success")
+
+    return redirect(url_for("admin_user"))
+
 
 # ACCOUNT
 @app.route("/profil", methods=["GET"])

@@ -36,7 +36,20 @@ class Campaign(db.Model):
     likes = db.relationship(
         "Like", back_populates="campaign", cascade="all, delete-orphan"
     )
+    
+    def is_currently_active(self):
+        """
+        Checks if this campaign is currently active based on its 'status'
+        field being 'active' AND the current date being within its from_date and to_date.
+        """
+        now = datetime.utcnow() 
 
+        return (
+            self.status == "aktív" and
+            self.from_date <= now and
+            self.to_date >= now
+        )
+    
     def __repr__(self):
         return f"<Campaign id={self.id}, name='{self.name}', status='{self.status}'>"
 
@@ -148,6 +161,15 @@ class User(db.Model, UserMixin):
         "Entry", back_populates="user", cascade="all, delete-orphan"
     )
     likes = db.relationship("Like", back_populates="user", cascade="all, delete-orphan")
+
+    def is_assigned_to_active_campaign(self):
+        """
+        Checks if the user is assigned to a campaign that is currently active.
+        Relies on the Campaign.is_currently_active() method.
+        """
+        if self.campaign:
+            return self.campaign.is_currently_active()
+        return False
 
     def __repr__(self):
         return f"<User id={self.id}, email='{self.email}'>"

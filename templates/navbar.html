@@ -38,8 +38,10 @@
 
 	<a class="navbar-item {% if request.endpoint == 'applications' %}is-active{% endif %}" href="{{ url_for('applications') }}">PÁLYÁZATOK</a>
 
-	{% if current_user.role == "dementor" or current_user.role == "admin" %}
-	<a class="navbar-item {% if request.endpoint == 'entry_form' %}is-active{% endif %}" href="{{ url_for('entry_form') }}">PÁLYÁZAT_HOZZÁADÁS</a>
+	{% if current_user.is_authenticated %}
+    {% if current_user.is_assigned_to_active_campaign() or current_user.role == "admin" %}
+        <a class="navbar-item {% if request.endpoint == 'entry_form' %}is-active{% endif %}" href="{{ url_for('entry_form') }}">PÁLYÁZAT_HOZZÁADÁS</a>
+    {% endif %}
 	{% endif %}
 
 	{% if current_user.role == "admin" %}
