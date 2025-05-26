@@ -1,17 +1,59 @@
 {% extends "base.html" %}
 {% block title %}BEJELENTKEZÉS{% endblock %}
 {% block content %}
-<link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
-  <div class="container">
-    <h1 class="title" id="highlight">BEJELENTKEZÉS</h1>
-    <br>
-    <img src="../static/img/google_icon.png" alt="Google icon" width="50" height="50"> 
-	<a class="button" href="/login/google">Google bejelentkezés</a>
-	<br>
-	<br>
-	<img src="../static/img/facebook_icon.png" alt="Facebook icon" width="50" height="50">
-	<a class="button" href="/login/facebook">Facebook bejelentkezés</a>
-	<hr>
-+Jogi szöveg adatkezelés link
+      
+<h1 class="title is-3 mb-5" id="highlight">BEJELENTKEZÉS</h1>
+<div class="container has-text-centered">
+<div class="box">
+{# Display Flask flash messages #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="notification is-light p-0 mb-4">
+            <ul class="list-none p-0">
+            {% for category, message in messages %}
+                <li class="py-2 px-4 rounded-md {% if category == 'success' %}has-background-success-light has-text-success{% elif category == 'danger' %}has-background-danger-light has-text-danger{% elif category == 'warning' %}has-background-warning-light has-text-warning{% else %}has-background-info-light has-text-info{% endif %} mb-2">
+                    {{ message }}
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+{% endwith %}
+
+{% if current_user.is_authenticated %}
+    <p class="subtitle is-5 mb-4">Üdvözöljük, **{{ current_user.user_given_name }}** ({{ current_user.email }})!</p>
+    <a href="{{ url_for('logout') }}" class="button is-danger is-large is-fullwidth">
+        <span class="icon">
+            <i class="fas fa-sign-out-alt"></i>
+        </span>
+        <span>Kijelentkezés</span>
+    </a>
+{% else %}
+    <p class="subtitle is-5 mb-6">Jelentkezz be az alábbi lehetőségek egyikével</p>
+
+    <div class="field">
+        <a class="button is-fullwidth is-large is-danger is-dark has-text-weight-bold" href="{{ url_for('google.login') }}">
+            <span class="icon">
+                <i class="fab fa-google"></i>
+            </span>
+            <span>Bejelentkezés Google-lel</span>
+        </a>
+    </div>
+
+    <div class="field">
+        <a class="button is-fullwidth is-large is-info is-dark has-text-weight-bold" href="{{ url_for('facebook.login') }}">
+            <span class="icon">
+                <i class="fab fa-facebook"></i>
+            </span>
+            <span>Bejelentkezés Facebookkal</span>
+        </a>
+    </div>
+{% endif %}
+
+<hr class="my-5">
+<p class="has-text-grey is-size-5">
+    <a href="#">Jogi szöveg adatkezelés link</a>
+</p>
 </div>
+
 {% endblock %}
