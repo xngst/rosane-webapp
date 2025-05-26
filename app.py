@@ -97,6 +97,10 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 3600,
 }
 
+db.init_app(app)
+migrate = Migrate(app, db)
+
+
 app.register_blueprint(google_bp, url_prefix="/login")
 app.register_blueprint(facebook_bp, url_prefix="/login")
 
@@ -116,8 +120,6 @@ s3_client = boto3.client(
     aws_access_key_id=app.config["S3_ACCESS_KEY_ID"],
     aws_secret_access_key=app.config["S3_SECRET_ACCESS_KEY"],
 )
-migrate = Migrate(app, db)
-db.init_app(app)
 
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
