@@ -220,39 +220,6 @@ def oauth_callback():
         return redirect(url_for("index"))
 
 
-@app.route("/welcome")
-def welcome():
-    if not google.authorized:
-        return redirect(url_for("google.login"))
-
-    resp = google.get("/oauth2/v2/userinfo")
-    if not resp.ok:
-        flash("Sikertelen adatlekérés!", "danger")
-        return redirect(url_for("index"))
-
-    user_info = resp.json()
-    user_email = user_info.get("email")
-    family_name = user_info.get("family_name")
-    given_name = user_info.get("given_name")
-    last_login = datetime.now()
-
-    user = User.query.filter_by(email=user_email).first()
-
-    if not user:
-        user = User(
-            email=user_email,
-            user_given_name=given_name,
-            user_family_name=family_name,
-            role="regular",
-            last_login=datetime.now(),
-        )
-        db.session.add(user)
-        db.session.commit()
-        flash("Új felhasználó sikeresen regisztrálva!", "success")
-
-    login_user(user)
-    return render_template("index.html")
-
 # LIKE
 @app.route("/like/<int:entry_id>", methods=["POST"])
 @login_required
@@ -770,6 +737,25 @@ def profil():
     return render_template(
         "profile.html", voted_entries=voted_entries, active_campaign=active_campaign
     )
+    
+# ACCOUNT DELETION
+@app.route('/delete_account', methods=['POST'])
+@login_required
+def delete_account():
+    user_to_delete = current_user
+
+    try:
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        logout_user()
+
+        flash('A fiók és minden hozzá tartozó adat sikeresen törölve lett a rendszerből.', 'success')
+        return redirect(url_for('index'))
+
+    except Exception as e:
+        db.session.rollback() 
+        flash('Nem sikerült törölni a fiókot', 'danger')
+        return redirect(url_for('profil'))
 
 @app.errorhandler(413)
 def request_entity_too_large(error):

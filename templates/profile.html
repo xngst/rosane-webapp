@@ -134,42 +134,44 @@
     </div>
     {% endif %}
 
-    {# --- Delete Profile Modal --- #}
-    <div class="modal" id="delete-modal">
-        <div class="modal-background"></div>
-        <div class="modal-content">
-            <div class="card">
-                <header class="card-header">
-                    <p class="card-header-title has-text-danger">
-                        <i class="fas fa-exclamation-triangle mr-2"></i> Profil Törlése
+{# --- Delete Profile Modal --- #}
+<div class="modal" id="delete-modal">
+    <div class="modal-background"></div>
+    <div class="modal-content">
+        <div class="card">
+            <header class="card-header">
+                <p class="card-header-title has-text-danger">
+                    <i class="fas fa-exclamation-triangle mr-2"></i> Profil Törlése
+                </p>
+                <button class="delete" aria-label="close"></button>
+            </header>
+            <section class="card-content">
+                <div class="content">
+                    <p class="has-text-danger">
+                        <i class="fas fa-exclamation-circle mr-2"></i> Biztosan törölni szeretnéd a profilodat? **Ez a művelet nem vonható vissza!**
                     </p>
-                    <button class="delete" aria-label="close"></button>
-                </header>
-                <section class="card-content">
-                    <div class="content">
-                        <p class="has-text-danger">
-                            <i class="fas fa-exclamation-circle mr-2"></i> Biztosan törölni szeretnéd a profilodat? **Ez a művelet nem vonható vissza!**
-                        </p>
-                    </div>
-                </section>
-                <footer class="card-footer">
-                    <a id="delete-confirm" class="card-footer-item button is-danger is-light">
+                </div>
+            </section>
+            <footer class="card-footer">
+                <form id="delete-account-form" action="{{ url_for('delete_account') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> 
+                    <button type="submit" class="card-footer-item button is-danger is-light">
                         <span class="icon"><i class="fas fa-trash-alt"></i></span>
                         <span>Törlés</span>
-                    </a>
-                    <button class="card-footer-item button is-light">Mégse</button>
-                </footer>
-            </div>
+                    </button>
+                </form>
+                <button class="card-footer-item button is-light">Mégse</button>
+            </footer>
         </div>
     </div>
 </div>
+
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const deleteButton = document.getElementById('delete-button');
         const modal = document.getElementById('delete-modal');
         const modalCloseButtons = document.querySelectorAll('.modal-background, .modal .delete, .modal .button:last-child');
-        const deleteConfirmButton = document.getElementById('delete-confirm');
 
         function openModal() {
             modal.classList.add('is-active');
@@ -190,14 +192,6 @@
             button.addEventListener('click', closeModal);
         });
 
-        if (deleteConfirmButton) {
-            deleteConfirmButton.addEventListener('click', function() {
-                // IMPORTANT: This should ideally be a POST request to a Flask route that handles deletion
-                // and then redirects to logout or a confirmation page.
-                // For now, it redirects to logout as per your original code.
-                window.location.href = "{{ url_for('logout') }}";
-            });
-        }
     });
 </script>
 
