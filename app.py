@@ -125,30 +125,21 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Tessék csak tessék!"
 csrf = CSRFProtect(app)
-#oauth = OAuth(app)
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+def role_required(*required_roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user or not current_user.is_authenticated:
+                flash('Előbb be kell jelentkezned.', 'danger')
+                return redirect(url_for('login', next=request.url))
 
-
-@app.route("/", methods=["GET"])
-def index():
-    return render_template("index.html")
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    return render_template("login.html")
-
-
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    flash("Sikeresen kijelentkezve", "info")
-    return redirect(url_for("index"))
-
+            if current_user.role not in required_roles:
+                flash('Ehhez nem vagy elég nagy kutya.', 'danger')
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 def process_oauth_login(user_email, given_name, family_name):
     user = User.query.filter_by(email=user_email).first()
@@ -170,6 +161,28 @@ def process_oauth_login(user_email, given_name, family_name):
 
     login_user(user)
     flash(f"Sikeres bejelentkezés, {user.user_given_name}!", "success")
+    return redirect(url_for("index"))
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("Sikeresen kijelentkezve", "info")
     return redirect(url_for("index"))
 
 #OATUH
@@ -300,6 +313,7 @@ def applications():
 # CREATE ENTRY
 @app.route("/formanyomtatvany", methods=["GET", "POST"])
 @login_required
+@role_required("dementor","admin")
 def entry_form():
     form = EntryForm()
 
@@ -380,6 +394,7 @@ def entry_form():
 # DELETE ENTRY
 @app.route("/adatlap/delete/<int:entry_id>", methods=["POST"])
 @login_required
+@role_required("admin")
 def delete_entry(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     images = Image.query.filter_by(entry_id=entry.id).all()
@@ -400,6 +415,7 @@ def adatlap(entry_id):
 # UPDATE DATASHEET
 @app.route("/update_datasheet/<int:entry_id>", methods=["GET", "POST"])
 @login_required
+@role_required("dementor","admin")
 def update_datasheet(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     images = Image.query.filter_by(entry_id=entry.id).all()
@@ -441,6 +457,7 @@ def update_datasheet(entry_id):
 # UPDATE ADDRESS
 @app.route("/entry/update_address/<int:entry_id>", methods=["GET", "POST"])
 @login_required
+@role_required("dementor","admin")
 def update_address(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     form = UpdateEntryForm(obj=entry)
@@ -469,6 +486,7 @@ def update_address(entry_id):
 # UPLOAD IMAGE
 @app.route("/entries/<int:entry_id>/images", methods=["POST"])
 @login_required
+@role_required("dementor","admin")
 def upload_image(entry_id):
     form = UploadImageForm()
 
@@ -570,6 +588,7 @@ def upload_image(entry_id):
 # ADD MORE IMAGES
 @app.route("/entries/<int:entry_id>/images", methods=["GET", "POST"])
 @login_required
+@role_required("dementor","admin")
 def upload_image_route(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     form = UploadImageForm()
@@ -594,6 +613,7 @@ def upload_image_route(entry_id):
 # DELETE IMAGE
 @app.route("/image/delete/<int:image_id>", methods=["POST"])
 @login_required
+@role_required("dementor","admin")
 def delete_image(image_id):
     image = Image.query.get_or_404(image_id)
     s3_key = f"{S3_PREFIX}/{image.entry_id}_{image.file_name}"
@@ -620,6 +640,7 @@ def delete_image(image_id):
 # CAMPAIGN
 @app.route("/campaign/")
 @login_required
+@role_required("admin")
 def campaign_list():
     campaigns = Campaign.query.all()
     return render_template("campaign_list.html", campaigns=campaigns)
@@ -628,6 +649,7 @@ def campaign_list():
 # CREATE CAMPAIGN
 @app.route("/campaigns/create/", methods=["GET", "POST"])
 @login_required
+@role_required("admin")
 def campaign_create():
     form = CampaignForm()
     active_campaign = Campaign.query.filter_by(status="aktív").first()
@@ -663,6 +685,7 @@ def campaign_create():
 # EDIT CAMPAIGN
 @app.route("/campaigns/<int:campaign_id>/edit/", methods=["GET", "POST"])
 @login_required
+@role_required("admin")
 def campaign_edit(campaign_id):
     campaign = Campaign.query.get_or_404(campaign_id)
     form = CampaignForm(obj=campaign)
@@ -691,6 +714,7 @@ def campaign_edit(campaign_id):
 
 # DELETE CAMPAIGN
 @login_required
+@role_required("admin")
 @app.route("/campaigns/<int:campaign_id>/delete/", methods=["POST"])
 def campaign_delete(campaign_id):
     campaign = Campaign.query.get_or_404(campaign_id)
@@ -702,6 +726,7 @@ def campaign_delete(campaign_id):
 # USERS
 @app.route("/admin_user", methods=["GET", "POST"])
 @login_required
+@role_required("admin")
 def admin_user():
     if current_user.role != "admin":
         flash("Nincs jogosultságod ehhez a művelethez!", "danger")
@@ -711,9 +736,10 @@ def admin_user():
     campaigns_data = [{'id': c.id, 'name': c.name} for c in campaigns]
     return render_template("admin_user.html", users=users, campaigns=campaigns_data)
 
-
+# UPDATE ROLE
 @app.route("/update_role/<int:user_id>", methods=["POST"])
 @login_required
+@role_required("admin")
 def update_role(user_id):
     if current_user.role != "admin":
         flash("Nincs jogosultságod ehhez a művelethez!", "danger")
@@ -729,8 +755,10 @@ def update_role(user_id):
         flash("Érvénytelen jogosultsági szint!", "danger")
     return redirect(url_for("admin_user"))
 
+# ASSIGN USER TO CAMPAIGN
 @app.route("/update_campaign/<int:user_id>", methods=["POST"])
 @login_required
+@role_required("admin")
 def update_campaign(user_id):
     if current_user.role != "admin":
         flash("Nincs jogosultságod ehhez a művelethez!", "danger")
@@ -803,6 +831,11 @@ def delete_account():
 @app.errorhandler(413)
 def request_entity_too_large(error):
     return "A feltöltött fájl túl nagy (max 5MB)!", 413
+
+
+@app.errorhandler(403)
+def err403(e):
+    return render_template("error/error_404.html")
 
 
 @app.errorhandler(404)
