@@ -307,13 +307,13 @@ def like(entry_id):
 
     if not active_campaign:
         flash("Jelenleg nincs aktív kampány.", "warning")
-        return redirect(url_for("applications"))
+        return redirect(request.referrer or url_for("applications")) # Fallback to applications
 
     current_datetime = datetime.now()
 
     if active_campaign.to_date and current_datetime > active_campaign.to_date:
         flash("A szavazási időszak már lejárt ehhez a kampányhoz.", "warning")
-        return redirect(url_for("applications"))
+        return redirect(request.referrer or url_for("applications")) # Fallback to applications
 
     user_has_liked_entry = Like.query.filter(
         Like.user_id == current_user.id,
@@ -334,15 +334,16 @@ def like(entry_id):
             flash(
                 f"Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!", "success"
             )
-            return redirect(url_for("applications"))
+            return redirect(request.referrer or url_for("applications")) # Redirect to referrer or fallback
         except Exception as e:
-            db.session.rollback() # Rollback if database commit fails
+            db.session.rollback()
             flash(f"Hiba történt a szavazat rögzítése során: {e}", "danger")
             app.logger.error(f"Error recording like for entry {entry_id} by user {current_user.id}: {e}")
-            return redirect(url_for("applications"))
+            return redirect(request.referrer or url_for("applications")) # Redirect to referrer or fallback
     else:
         flash(f"Egy pályázatra csak egy szavazat adható le!", "danger")
-        return redirect(url_for("applications"))
+        return redirect(request.referrer or url_for("applications")) # Redirect to referrer or fallback
+
 
 # MAP
 @app.route("/terkep", methods=["GET", "POST"])
@@ -385,7 +386,8 @@ def map():
 @app.route("/applications", methods=["GET", "POST"])
 def applications():
     # Order entries by a random function
-    entries = Entry.query.order_by(func.random()).all()
+    #entries = Entry.query.order_by(func.random()).all()
+    entries = Entry.query.all()
     return render_template("applications.html", entries=entries)
 
 # CREATE ENTRY
@@ -488,8 +490,22 @@ def delete_entry(entry_id):
 @app.route("/adatlap/<int:entry_id>")
 def adatlap(entry_id):
     entry = Entry.query.get_or_404(entry_id)
+    
+    existing_like = False
+    
+    try:
+        active_campaign = Campaign.query.filter_by(status="aktív").first()
+        existing_like = Like.query.filter(
+            Like.user_id == current_user.id,
+            Like.entry_id == entry.id,
+            Like.campaign_id == active_campaign.id
+        ).first()
+    except Exception as e:
+    
+        pass
+    
     images = DBImage.query.filter_by(entry_id=entry.id).all()
-    return render_template("datasheet.html", entry=entry, images=images)
+    return render_template("datasheet.html", entry=entry, images=images, existing_like=existing_like)
 
 
 # UPDATE DATASHEET

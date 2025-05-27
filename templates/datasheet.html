@@ -2,9 +2,7 @@
 {% block title %}ADATLAP{% endblock %}
 {% block content %}
 
-<!-- CSS/JS for Lightbox -->
 <link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet" />
-<!-- Image Gallery Styling -->
 <style>
 .image-gallery a {
     display: inline-block;
@@ -21,7 +19,6 @@
 }
 </style>
 
-<!-- Lightbox Custom Background -->
 <style>
 .lightboxOverlay {
     background-image: url('{{ url_for('static', filename='img/gallery_bg.jpg') }}');
@@ -50,31 +47,57 @@
     <div class="column is-10">
       <div class="card">
         <header class="card-header has-background-info">
-		<p class="card-header-title has-text-white is-size-5">
-			<span class="is-flex-grow-1">Adatlap: {{ entry.title }}</span>
-			<span>
-				<button class="button is-dark is-flex is-align-items-center" id="copyUrlButton">
-				    <span class="icon is-small">
-				        <i class="fa-solid fa-link mr-2"></i>
-				    </span>
-				    <span>Link másolása a vágólapra</span>
-				</button>
-			</span>
-		</p>
+        <p class="card-header-title has-text-white is-size-5">
+            <span class="is-flex-grow-1">Adatlap: {{ entry.title }}</span>
+            <span>
+                <button class="button is-dark is-flex is-align-items-center" id="copyUrlButton">
+                    <span class="icon is-small">
+                        <i class="fa-solid fa-link mr-2"></i>
+                    </span>
+                    <span>Link másolása a vágólapra</span>
+                </button>
+            </span>
+        </p>
         </header>
 
-        {% if current_user.is_authenticated %}
-        {% if current_user.is_assigned_to_active_campaign() or current_user.role == "admin" %}
-        <a href="{{ url_for('update_datasheet', entry_id=entry.id) }}" class="card-header-item is-active">
-          <div class="tags are-medium">
-            <span class="tag"><i class="fas fa-edit me-1"></i> Szerkesztés</span>
-          </div>
-        </a>
-        {% endif %}
-        {% endif %}
+          <a href="/applications" class="button is-text is-fullwidth">
+            <span class="icon"><i class="fas fa-arrow-left"></i></span>
+            <span>Vissza a pályázatokhoz</span>
+          </a>
+
+
+{% if current_user.is_authenticated %}
+{% if current_user.is_assigned_to_active_campaign() or current_user.role == "admin" %}
+<a href="{{ url_for('update_datasheet', entry_id=entry.id) }}"
+   class="card-header-item is-active is-flex is-justify-content-center"> {# Add these classes #}
+    <div class="tags are-medium">
+        <span class="tag"><i class="fas fa-edit me-1"></i> Szerkesztés</span>
+    </div>
+</a>
+{% endif %}
+{% endif %}
 
         <div class="card-content">
-          <div class="is-flex is-justify-content-flex-end mb-4">
+          <div class="is-flex is-justify-content-flex-end mb-4 is-gap-3"> {# Added is-gap-3 for spacing #}
+            {# Like Button Form #}
+            
+		{% if not existing_like %}
+			<form action="{{ url_for('like', entry_id=entry.id) }}" method="POST" style="display:inline-block;">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+				<button type="submit" class="button is-success">
+				    <span class="icon"><i class="fas fa-heart"></i></span>
+				    <span>Szavazok!</span>
+				</button>
+			</form>
+		{% else %}
+			<span class="tag is-success is-large">
+				<span class="icon"><i class="fas fa-check"></i></span>
+				<span>Már szavaztál erre a pályázatra!</span>
+			</span>
+		{% endif %}
+            
+            {# End Like Button Form #}
+
             <a class="button is-link"
               href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('adatlap', entry_id=entry.id, _external=True) }}"
               target="_blank" rel="noopener">
@@ -88,7 +111,7 @@
                 ('<i class="fas fa-bullhorn"></i> Kampány', entry.campaign.name if entry.campaign else '—'),
                 ('<i class="fas fa-map-marker-alt"></i> Helyszín', entry.full_address or '—'),
                 ('<i class="fas fa-hashtag"></i> Azonosító', entry.rosan_id),
-                ('<i class="fas fa-thumbs-up"></i> Kedvelések száma', entry.like_count or '—'),
+                ('<i class="fas fa-thumbs-up"></i> Szavazatok száma', entry.like_count or '—'),
                 ('<i class="fas fa-user"></i> Pályázó neve', entry.applicant_name or '—'),
                 ('<i class="fas fa-folder-open"></i> Kategória', entry.category or '—'),
                 ('<i class="fas fa-info-circle"></i> Állapot', entry.status or '—'),
@@ -136,13 +159,6 @@
           </div>
           {% endif %}
         </div>
-
-        <footer class="card-footer is-flex is-flex-direction-column p-4">
-          <a href="/applications" class="button is-link is-fullwidth">
-            <span class="icon"><i class="fas fa-arrow-left"></i></span>
-            <span>Vissza a pályázatokhoz</span>
-          </a>
-        </footer>
       </div>
     </div>
   </div>
@@ -152,4 +168,3 @@
 <script src="{{ url_for('static', filename='js/misc.js') }}"></script>
 
 {% endblock %}
-

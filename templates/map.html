@@ -2,6 +2,8 @@
 {% block title %}TÉRKÉP{% endblock %}
 {% block content %}
 
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
 <!-- Stylesheets -->
 <link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet" />
 
@@ -9,6 +11,7 @@
 <h1 class="title" id="highlight">PÁLYÁZAT TÉRKÉP</h1>
 <div class="box">
     <p>!---ide jön a térkép ikon magyarázat---!</p>
+    
     <div id="map" style="height: 60em;"></div>
 </div>
 </div>
@@ -103,119 +106,139 @@ map.on('load', () => {
       }
     });
 
-    // Modal popup with Lightbox
-    map.on('click', 'unclustered-point', (e) => {
-      const props = e.features[0].properties;
+// Modal popup with Lightbox
+map.on('click', 'unclustered-point', (e) => {
+    const props = e.features[0].properties;
 
-      document.getElementById('datasheet-modal')?.remove();
+    document.getElementById('datasheet-modal')?.remove();
 
-      const imgPaths = JSON.parse(props.img_paths || '[]');
-      const galleryHTML = imgPaths.map(img =>
+    const imgPaths = JSON.parse(props.img_paths || '[]');
+    const galleryHTML = imgPaths.map(img =>
         `<a href="${img}" data-lightbox="gallery">
            <img src="${img}" alt="Image" style="height:100px; margin:5px; border:1px solid #ccc;">
          </a>`
-      ).join('');
+    ).join('');
 
-const modalHTML = `
-  <div class="modal is-active" id="datasheet-modal">
-    <div class="modal-background"></div>
-    <div class="modal-card">
-      <header class="modal-card-head">
-        <p class="modal-card-title"><i class="fas fa-info-circle mr-2"></i>${props.title}</p>
-        <button class="delete" aria-label="close"></button>
-      </header>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]') ?
+                      document.querySelector('meta[name="csrf-token"]').getAttribute('content') :
+                      '';
+    
+    if (!csrfToken) {
+        console.error("CSRF token meta tag not found. Like button might not work.");
+    }
 
-      <section class="modal-card-body">
-        <div class="content">
-          <div class="box">
-            <div class="columns is-multiline">
-              <div class="column is-half">
-                <div class="mb-2">
-                  <strong><i class="fas fa-id-badge mr-2"></i>Azonosító:</strong>
-                </div>
-                <div>${props.rosan_id}</div>
-              </div>
+    const modalHTML = `
+      <div class="modal is-active" id="datasheet-modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+          <header class="modal-card-head">
+            <p class="modal-card-title"><i class="fas fa-info-circle mr-2"></i>${props.title}</p>
+            <button class="delete" aria-label="close"></button>
+          </header>
 
-              <div class="column is-half">
-                <div class="mb-2">
-                  <a href="${props.facebook_url}" target="_blank" class="button is-link is-small">
-                    <span class="icon">
-                      <i class="fab fa-facebook"></i>
-                    </span>
-                    <span><b>Facebook esemény</b></span>
-                  </a>
-                </div>
-              </div>
-
-              <div class="column is-half">
-                <div class="mb-2">
-                  <strong><i class="fas fa-thumbs-up mr-2"></i>Kedvelések száma:</strong>
-                </div>
-                <div>${props.like_count}</div>
-              </div>
-
-              <div class="column is-half">
-                <div class="mb-2">
-                  <strong><i class="fas fa-tags mr-2"></i>Kategória:</strong>
-                </div>
-                <div>${props.category}</div>
-              </div>
-
-              <div class="column is-half">
-                <div class="mb-2">
-                  <strong><i class="fas fa-hourglass-half mr-2"></i>Megvalósítás állapota:</strong>
-                </div>
-                <div>${props.status}</div>
-              </div>
-
-              <div class="column is-full">
-                <div class="mb-2">
-                  <strong><i class="fas fa-align-left mr-2"></i>Leírás:</strong>
-                </div>
-                <div><p>${props.description}</p></div>
-              </div>
-
-              <div class="column is-full">
-                <div class="mb-2">
-                  <strong><i class="fas fa-map-marker-alt mr-2"></i>Cím:</strong>
-                </div>
-                <div><p>${props.address}</p></div>
-              </div>
-            </div>
-          </div>
-            ${galleryHTML
-              ? `
+          <section class="modal-card-body">
+            <div class="content">
+                        <form action="/like/${props.id}" method="POST">
+              <input type="hidden" name="csrf_token" value="${csrfToken}">
+              <button type="submit" class="button is-success is-fullwidth">
+                <span class="icon">
+                  <i class="fas fa-heart"></i>
+                </span>
+                <span>Szavazok!</span>
+              </button>
+            </form>
               <div class="box">
-                <p class="mb-2"><strong><i class="fas fa-images mr-2"></i>Galéria:</strong></p>
-                <div class="image-gallery columns is-multiline">
-                  ${galleryHTML}
+                <div class="columns is-multiline">
+                  <div class="column is-half">
+                    <div class="mb-2">
+                      <strong><i class="fas fa-id-badge mr-2"></i>Azonosító:</strong>
+                    </div>
+                    <div>${props.rosan_id}</div>
+                  </div>
+
+                  <div class="column is-half">
+                    <div class="mb-2">
+                      <a href="${props.facebook_url}" target="_blank" class="button is-link is-small">
+                        <span class="icon">
+                          <i class="fab fa-facebook"></i>
+                        </span>
+                        <span><b>Facebook esemény</b></span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="column is-half">
+                    <div class="mb-2">
+                      <strong><i class="fas fa-thumbs-up mr-2"></i>Kedvelések száma:</strong>
+                    </div>
+                    <div>${props.like_count}</div>
+                  </div>
+
+                  <div class="column is-half">
+                    <div class="mb-2">
+                      <strong><i class="fas fa-tags mr-2"></i>Kategória:</strong>
+                    </div>
+                    <div>${props.category}</div>
+                  </div>
+
+                  <div class="column is-half">
+                    <div class="mb-2">
+                      <strong><i class="fas fa-hourglass-half mr-2"></i>Megvalósítás állapota:</strong>
+                    </div>
+                    <div>${props.status}</div>
+                  </div>
+
+                  <div class="column is-full">
+                    <div class="mb-2">
+                      <strong><i class="fas fa-align-left mr-2"></i>Leírás:</strong>
+                    </div>
+                    <div><p>${props.description}</p></div>
+                  </div>
+
+                  <div class="column is-full">
+                    <div class="mb-2">
+                      <strong><i class="fas fa-map-marker-alt mr-2"></i>Cím:</strong>
+                    </div>
+                    <div><p>${props.address}</p></div>
+                  </div>
                 </div>
               </div>
-              `
-              : ''
-            }
+                ${galleryHTML
+                  ? `
+                  <div class="box">
+                    <p class="mb-2"><strong><i class="fas fa-images mr-2"></i>Galéria:</strong></p>
+                    <div class="image-gallery columns is-multiline">
+                      ${galleryHTML}
+                    </div>
+                  </div>
+                  `
+                  : ''
+                }
 
+            </div>
+          </section>
+
+          <footer class="modal-card-foot is-flex is-flex-direction-column is-gap-2">
+
+
+            <a href="/adatlap/${props.id}" class="button is-warning is-fullwidth">
+              <span class="icon">
+                <i class="fas fa-file-alt"></i>
+              </span>
+              <span>Adatlap</span>
+            </a>
+          </footer>
         </div>
-      </section>
+      </div>
+    `;
 
-      <footer class="modal-card-foot is-flex is-flex-direction-column is-gap-2">
-        <a href="/adatlap/${props.id}" class="button is-warning is-fullwidth">
-          <span class="icon">
-            <i class="fas fa-file-alt"></i>
-          </span>
-          <span>Adatlap</span>
-        </a>
-      </footer>
-    </div>
-  </div>
-`;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = document.getElementById('datasheet-modal');
 
-      document.body.insertAdjacentHTML('beforeend', modalHTML);
-      const modal = document.getElementById('datasheet-modal');
-      modal.querySelector('.delete').addEventListener('click', () => modal.remove());
-      modal.querySelector('.modal-background').addEventListener('click', () => modal.remove());
-      modal.querySelector('.button.is-warning').addEventListener('click', () => modal.remove());
-    });
+    modal.querySelector('.delete').addEventListener('click', () => modal.remove());
+    modal.querySelector('.modal-background').addEventListener('click', () => modal.remove());
+});
+// END OF MODAL POPUP
 
     // Hover popup
     const hoverPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false });

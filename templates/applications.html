@@ -69,19 +69,30 @@ if (window.innerWidth < 768) {
           return gridjs.html(`
             <form method="POST" action="/like/${row.cells[0].data}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="button is-primary is-small">👍 Ez tetszik!</button>
+                <button type="submit" class="button is-success is-small">
+                    <span class="icon is-small">
+                        <i class="fas fa-heart"></i>
+                    </span>
+                    <span>Szavazok!</span>
+                </button>
             </form>
           `);
         }
       },
-      {
-        name: 'Adatlap',
-        formatter: (cell, row) => {
-          return gridjs.html(`
-            <a href="/adatlap/${row.cells[0].data}" class='has-text-link'>Részletek</a>
-          `);
-        }
-      }
+	{
+		name: 'Adatlap',
+		formatter: (cell, row) => {
+		    return gridjs.html(`
+		        <a href="/adatlap/${row.cells[0].data}" class="button is-info is-small">
+		            <span class="icon is-small">
+		                <i class="fas fa-file-alt"></i> {# Font Awesome file icon #}
+		            </span>
+		            <span>Adatlap</span> {# Keeping the text for clarity, but you can remove it if you prefer icon-only #}
+		        </a>
+		    `);
+		}
+	},
+
     ],
     data: entries.map(e => [
       e.id, e.title, e.category, e.city, e.applicant, e.like_count
