@@ -20,35 +20,38 @@
     {% endif %}
 {% endwith %}
 
-{% if current_user.is_authenticated %}
-    <p class="subtitle is-5 mb-4">Üdvözöljük, **{{ current_user.user_given_name }}** ({{ current_user.email }})!</p>
-    <a href="{{ url_for('logout') }}" class="button is-danger is-large is-fullwidth">
+
+<p class="subtitle is-5 mb-6">Jelentkezz be az alábbi lehetőségek egyikével</p>
+
+<div class="field">
+    <a class="button is-fullwidth is-large is-danger is-dark has-text-weight-bold" href="{{ url_for('google.login') }}">
         <span class="icon">
-            <i class="fas fa-sign-out-alt"></i>
+            <i class="fab fa-google"></i>
         </span>
-        <span>Kijelentkezés</span>
+        <span>Google</span>
     </a>
-{% else %}
-    <p class="subtitle is-5 mb-6">Jelentkezz be az alábbi lehetőségek egyikével</p>
+</div>
 
-    <div class="field">
-        <a class="button is-fullwidth is-large is-danger is-dark has-text-weight-bold" href="{{ url_for('google.login') }}">
-            <span class="icon">
-                <i class="fab fa-google"></i>
-            </span>
-            <span>Bejelentkezés Google-lel</span>
-        </a>
-    </div>
+<div class="field">
+    <a class="button is-fullwidth is-large is-info is-dark has-text-weight-bold" href="{{ url_for('facebook.login') }}">
+        <span class="icon">
+            <i class="fab fa-facebook"></i>
+        </span>
+        <span>Facebook</span>
+    </a>
+</div>
 
-    <div class="field">
-        <a class="button is-fullwidth is-large is-info is-dark has-text-weight-bold" href="{{ url_for('facebook.login') }}">
-            <span class="icon">
-                <i class="fab fa-facebook"></i>
-            </span>
-            <span>Bejelentkezés Facebookkal</span>
-        </a>
-    </div>
-{% endif %}
+<div class="field">
+    <a class="button is-fullwidth is-large is-info is-dark has-text-weight-bold" href="{{ url_for('login_keycloak') }}">
+        <span class="icon">
+            <i class="fab"></i>
+        </span>
+        <span>Keycloak</span>
+    </a>
+</div>
+
+
+
 
 <hr class="my-5">
 <p class="has-text-grey is-size-5">

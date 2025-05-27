@@ -22,3 +22,4 @@ facebook_bp = make_facebook_blueprint(
     scope=["email", "public_profile"],
     redirect_to="oauth_callback",
 )
+

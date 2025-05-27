@@ -1,15 +1,17 @@
-"""
-RÓSÁNÉ backend
-"""
-# BULT-INS
-import json
+# app.py
+
+# BUILT-INS
 import os
-import uuid
 from datetime import datetime
-from dotenv import load_dotenv
+import json
+import uuid
 from functools import wraps
-from PIL import Image
 from io import BytesIO
+import secrets
+
+# THIRD-PARTY LIBRARIES
+from dotenv import load_dotenv
+from PIL import Image
 
 # FLASK
 from flask import (
@@ -19,11 +21,12 @@ from flask import (
     redirect,
     url_for,
     flash,
+    session,
     jsonify,
     abort,
 )
 
-# USER MANAGMENT
+# FLASK EXTENSIONS
 from flask_login import (
     LoginManager,
     login_user,
@@ -31,89 +34,89 @@ from flask_login import (
     login_required,
     current_user,
 )
-
-# DB
 from flask_migrate import Migrate
-import psycopg2
 from flask_sqlalchemy import SQLAlchemy
-from models import db
-from models import Like
-from models import Campaign
-from models import User
-from models import Image
-from models import Entry
-
-# FORMS
-from forms import EntryForm
-from forms import UpdateDatasheetForm
-from forms import CampaignForm
-from forms import UpdateEntryForm
-from forms import UploadImageForm
-
 from flask_wtf.csrf import CSRFProtect
-
-# SEC
 from werkzeug.utils import secure_filename
-from authlib.integrations.flask_client import OAuth
-from oauthlib.oauth2.rfc6749.errors import MismatchingStateError, MissingTokenError
-
-# MIDDLEWARE
 from werkzeug.middleware.proxy_fix import ProxyFix
-
-# S3
-import boto3, botocore
-
-# LOGIN BLUEPRINTS
+import boto3
+import botocore
 from flask_dance.contrib.google import google
+from authlib.integrations.flask_client import OAuth
+from sqlalchemy.sql.expression import func
+
+# from flask_dance.consumer import keycloak # If you define a LocalProxy for Keycloak
+
+# INTERNAL IMPORTS (YOUR APP MODULES)
+from models import db, Like, Campaign, User, Image as DBImage, Entry
+from forms import (
+    EntryForm,
+    UpdateDatasheetForm,
+    CampaignForm,
+    UpdateEntryForm,
+    UploadImageForm,
+)
 from login_blueprints import google_bp, facebook_bp
-
-# CUSTOM UTILS
 from utils import allowed_file, gen_rosane_id, resize_image
+import logging
 
-# CONFIG
+# --- Configuration Loading ---
 load_dotenv()
 
-MAPBOX_KEY = os.getenv("MAPBOX_KEY")
-START_LNG = os.getenv("START_LNG")
-START_LAT = os.getenv("START_LAT")
+# Import the configuration classes
+from config import DevelopmentConfig, ProductionConfig, TestingConfig
 
+# --- Flask App Initialization ---
 app = Flask(__name__)
 
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("NEON_CONNECT_STRING")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
-app.config["S3_BUCKET"] = os.getenv("S3_BUCKET")
-app.config["S3_REGION"] = os.getenv("S3_REGION")
-app.config["S3_PREFIX"] = os.getenv("S3_PREFIX")
-app.config["S3_ACCESS_KEY_ID"] = os.getenv("S3_ACCESS_KEY_ID")
-app.config["S3_SECRET_ACCESS_KEY"] = os.getenv("S3_SECRET_ACCESS_KEY")
-app.config["MAX_SIZE_MB"] = int(os.getenv("MAX_SIZE_MB"))
-app.config["RESIZE_MAX_DIM"] = os.getenv("RESIZE_MAX_DIM")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,
-    "pool_size": 10,
-    "max_overflow": 20,
-    "pool_recycle": 3600,
-}
+# Determine config based on ENV
+ENV = os.getenv("ENV", "development")  # Default to development
+if ENV == "prod":
+    app.config.from_object(ProductionConfig)
+    logging.basicConfig(level=logging.INFO)
+elif ENV == "test":
+    app.config.from_object(TestingConfig)
+    logging.basicConfig(level=logging.DEBUG)
+else:  # Default to development
+    app.config.from_object(DevelopmentConfig)
+    logging.basicConfig(level=logging.INFO)
 
+# Apply ProxyFix for deployment behind a proxy (e.g., Nginx, AWS ELB)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# --- Initialize Extensions ---
 db.init_app(app)
 migrate = Migrate(app, db)
+csrf = CSRFProtect(app)
+
+# Flask-Login
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+login_manager.login_message = "Tessék csak tessék!"
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+# --- Register Blueprints ---
 app.register_blueprint(google_bp, url_prefix="/login")
 app.register_blueprint(facebook_bp, url_prefix="/login")
 
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+oauth = OAuth(app)
 
-ENV = os.getenv("ENV")
-if ENV == "prod":
-    app.config["SERVER_NAME"] = "rosane.life"
-    app.config["PREFERRED_URL_SCHEME"] = "https"
+# Keycloak OAuth
+oauth.register(
+    name="keycloak",
+    client_id=os.getenv("KEYCLOAK_CLIENT_ID"),
+    client_secret=os.getenv("KEYCLOAK_CLIENT_SECRET"),
+    server_metadata_url=os.getenv("KEYCLOAK_SERVER_METADATA_URL"),
+    client_kwargs={"scope": "openid profile email"},
+)
 
-if ENV == "test":
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
+# --- S3 Client Initialization ---
 s3_client = boto3.client(
     "s3",
     region_name=app.config["S3_REGION"],
@@ -121,26 +124,27 @@ s3_client = boto3.client(
     aws_secret_access_key=app.config["S3_SECRET_ACCESS_KEY"],
 )
 
-login_manager = LoginManager(app)
-login_manager.login_view = "login"
-login_manager.login_message = "Tessék csak tessék!"
-csrf = CSRFProtect(app)
 
+# RBAC
 def role_required(*required_roles):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user or not current_user.is_authenticated:
-                flash('Előbb be kell jelentkezned.', 'danger')
-                return redirect(url_for('login', next=request.url))
+                flash("Előbb be kell jelentkezned.", "danger")
+                return redirect(url_for("login", next=request.url))
 
             if current_user.role not in required_roles:
-                flash('Ehhez nem vagy elég nagy kutya.', 'danger')
+                flash("Ehhez nem vagy elég nagy kutya.", "danger")
                 abort(403)
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
 
+
+# LOGIN PROCESSOR
 def process_oauth_login(user_email, given_name, family_name):
     user = User.query.filter_by(email=user_email).first()
 
@@ -163,6 +167,7 @@ def process_oauth_login(user_email, given_name, family_name):
     flash(f"Sikeres bejelentkezés, {user.user_given_name}!", "success")
     return redirect(url_for("index"))
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -181,11 +186,68 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    try:
+        session.pop("keycloak_logged_in", None)  # Clear Keycloak session flag if set
+        # If the user logged in via Keycloak, redirect to Keycloak's logout URL
+        if session.get("logged_in_via_keycloak"):
+            session.pop("logged_in_via_keycloak", None)  # Clear the flag
+            redirect_uri = url_for("index", _external=True)
+            keycloak_logout_url = os.getenv("KEYCLOAK_LOGOUT_URL")
+            if keycloak_logout_url:
+                return redirect(keycloak_logout_url)
+            else:
+                flash("Keycloak logout URL is not configured.", "warning")
+    except NameError as ne:
+        print(ne)
+        pass
     logout_user()
     flash("Sikeresen kijelentkezve", "info")
+
     return redirect(url_for("index"))
 
-#OATUH
+
+# Keycloak Login Initiator
+@app.route("/login/keycloak", methods=["GET"])  # Changed to GET as it's an initiation
+def login_keycloak():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    nonce = secrets.token_urlsafe(16)
+    session["nonce"] = nonce
+    redirect_uri = url_for("auth_keycloak", _external=True)
+    return oauth.keycloak.authorize_redirect(redirect_uri, nonce=nonce)
+
+
+# Keycloak Auth Callback
+@app.route("/auth/keycloak")
+def auth_keycloak():
+    try:
+        token = oauth.keycloak.authorize_access_token()
+        nonce_from_session = session.pop("nonce", None)
+        user_info = oauth.keycloak.parse_id_token(token, nonce=nonce_from_session)
+
+        user_email = user_info.get("email")
+        given_name = user_info.get("given_name")
+        family_name = user_info.get("family_name")
+
+        if not user_email:
+            flash("Nem sikerült lekérni az e-mail címet a Keycloak-tól.", "warning")
+            return redirect(url_for("index"))
+
+        session["logged_in_via_keycloak"] = True  # Set a flag for Keycloak logout
+        return process_oauth_login(user_email, given_name, family_name)
+
+    except MismatchingStateError:
+        flash("Érvénytelen Keycloak OAuth state.", "danger")
+        return redirect(url_for("index"))
+    except MissingTokenError:
+        flash("Hiányzó Keycloak OAuth token.", "danger")
+        return redirect(url_for("index"))
+    except Exception as e:
+        flash(f"Hiba történt a Keycloak bejelentkezés során: {e}", "danger")
+        return redirect(url_for("index"))
+
+
+# OATUH
 @app.route("/oauth_callback")
 def oauth_callback():
     try:
@@ -243,6 +305,16 @@ def like(entry_id):
 
     active_campaign = Campaign.query.filter_by(status="aktív").first()
 
+    if not active_campaign:
+        flash("Jelenleg nincs aktív kampány.", "warning")
+        return redirect(url_for("applications"))
+
+    current_datetime = datetime.now()
+
+    if active_campaign.to_date and current_datetime > active_campaign.to_date:
+        flash("A szavazási időszak már lejárt ehhez a kampányhoz.", "warning")
+        return redirect(url_for("applications"))
+
     user_has_liked_entry = Like.query.filter(
         Like.user_id == current_user.id,
         Like.entry_id == entry.id,
@@ -250,18 +322,24 @@ def like(entry_id):
     ).first()
 
     if not user_has_liked_entry:
-        entry.like_count += 1
+        try:
+            entry.like_count += 1
 
-        new_like = Like(
-            user_id=current_user.id, entry_id=entry.id, campaign_id=active_campaign.id
-        )
-        db.session.add(new_like)
-        db.session.commit()
+            new_like = Like(
+                user_id=current_user.id, entry_id=entry.id, campaign_id=active_campaign.id
+            )
+            db.session.add(new_like)
+            db.session.commit()
 
-        flash(
-            f"Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!", "success"
-        )
-        return redirect(url_for("applications"))
+            flash(
+                f"Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!", "success"
+            )
+            return redirect(url_for("applications"))
+        except Exception as e:
+            db.session.rollback() # Rollback if database commit fails
+            flash(f"Hiba történt a szavazat rögzítése során: {e}", "danger")
+            app.logger.error(f"Error recording like for entry {entry_id} by user {current_user.id}: {e}")
+            return redirect(url_for("applications"))
     else:
         flash(f"Egy pályázatra csak egy szavazat adható le!", "danger")
         return redirect(url_for("applications"))
@@ -272,7 +350,7 @@ def map():
     entries = Entry.query.all()
     geojson = {"type": "FeatureCollection", "features": []}
     for entry in entries:
-        images = Image.query.filter_by(entry_id=entry.id).all()
+        images = DBImage.query.filter_by(entry_id=entry.id).all()
         img_paths = [image.url for image in images]
 
         feature = {
@@ -296,9 +374,9 @@ def map():
 
     return render_template(
         "map.html",
-        MAPBOX_KEY=MAPBOX_KEY,
-        START_LNG=START_LNG,
-        START_LAT=START_LAT,
+        MAPBOX_KEY=app.config["MAPBOX_KEY"],
+        START_LNG=app.config["START_LNG"],
+        START_LAT=app.config["START_LAT"],
         geojson_data=geojson,
     )
 
@@ -306,14 +384,14 @@ def map():
 # APPLICATIONS
 @app.route("/applications", methods=["GET", "POST"])
 def applications():
-    entries = Entry.query.all()
+    # Order entries by a random function
+    entries = Entry.query.order_by(func.random()).all()
     return render_template("applications.html", entries=entries)
-
 
 # CREATE ENTRY
 @app.route("/formanyomtatvany", methods=["GET", "POST"])
 @login_required
-@role_required("dementor","admin")
+@role_required("dementor", "admin")
 def entry_form():
     form = EntryForm()
 
@@ -373,7 +451,7 @@ def entry_form():
             return render_template(
                 "form.html",
                 form=form,
-                MAPBOX_KEY=MAPBOX_KEY,
+                MAPBOX_KEY=app.config["MAPBOX_KEY"],
                 START_LNG=START_LNG,
                 START_LAT=START_LAT,
                 campaigns=campaigns,
@@ -384,9 +462,9 @@ def entry_form():
     return render_template(
         "form.html",
         form=form,
-        MAPBOX_KEY=MAPBOX_KEY,
-        START_LNG=START_LNG,
-        START_LAT=START_LAT,
+        MAPBOX_KEY=app.config["MAPBOX_KEY"],
+        START_LNG=app.config["START_LNG"],
+        START_LAT=app.config["START_LAT"],
         campaigns=campaigns,
     )
 
@@ -397,7 +475,7 @@ def entry_form():
 @role_required("admin")
 def delete_entry(entry_id):
     entry = Entry.query.get_or_404(entry_id)
-    images = Image.query.filter_by(entry_id=entry.id).all()
+    images = DBImage.query.filter_by(entry_id=entry.id).all()
     for image in images:
         db.session.delete(image)
     db.session.delete(entry)
@@ -405,20 +483,22 @@ def delete_entry(entry_id):
     flash("Adatlap sikeresen törölve!", "success")
     return redirect(url_for("applications"))
 
+
 # VIEW DATASHEET
 @app.route("/adatlap/<int:entry_id>")
 def adatlap(entry_id):
     entry = Entry.query.get_or_404(entry_id)
-    images = Image.query.filter_by(entry_id=entry.id).all()
+    images = DBImage.query.filter_by(entry_id=entry.id).all()
     return render_template("datasheet.html", entry=entry, images=images)
+
 
 # UPDATE DATASHEET
 @app.route("/update_datasheet/<int:entry_id>", methods=["GET", "POST"])
 @login_required
-@role_required("dementor","admin")
+@role_required("dementor", "admin")
 def update_datasheet(entry_id):
     entry = Entry.query.get_or_404(entry_id)
-    images = Image.query.filter_by(entry_id=entry.id).all()
+    images = DBImage.query.filter_by(entry_id=entry.id).all()
     campaigns = Campaign.query.all()
     form = UpdateDatasheetForm(obj=entry)
 
@@ -451,13 +531,14 @@ def update_datasheet(entry_id):
         form=form,
         entry=entry,
         images=images,
-        MAPBOX_KEY=MAPBOX_KEY,
+        MAPBOX_KEY=app.config["MAPBOX_KEY"],
     )
+
 
 # UPDATE ADDRESS
 @app.route("/entry/update_address/<int:entry_id>", methods=["GET", "POST"])
 @login_required
-@role_required("dementor","admin")
+@role_required("dementor", "admin")
 def update_address(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     form = UpdateEntryForm(obj=entry)
@@ -478,118 +559,18 @@ def update_address(entry_id):
         "update_address.html",
         form=form,
         entry=entry,
-        MAPBOX_KEY=MAPBOX_KEY,
-        START_LNG=START_LNG,
-        START_LAT=START_LAT,
+        MAPBOX_KEY=app.config["MAPBOX_KEY"],
+        START_LNG=app.config["START_LNG"],
+        START_LAT=app.config["START_LAT"],
     )
 
-# UPLOAD IMAGE
-@app.route("/entries/<int:entry_id>/images", methods=["POST"])
-@login_required
-@role_required("dementor","admin")
-def upload_image(entry_id):
-    form = UploadImageForm()
-
-    if form.validate_on_submit():
-        images = form.images.data
-
-        successful_uploads_count = 0
-        image_objects_to_add = []
-
-        for image_file in images:
-            if not image_file:
-                continue
-
-            original_filename = secure_filename(image_file.filename)
-
-            if not allowed_file(original_filename):
-                flash(
-                    f"A(z) '{original_filename}' kép érvénytelen fájltípusú. Csak JPG, JPEG és PNG engedélyezett.",
-                    "warning",
-                )
-                continue
-
-            file_size_mb = (
-                image_file.content_length / (1024 * 1024)
-                if image_file.content_length
-                else 0
-            )
-            buffer_to_upload = BytesIO(image_file.read())
-            image_file.seek(0)
-
-            if file_size_mb >= MAX_SIZE_MB:
-                try:
-                    img = Image.open(buffer_to_upload)
-                    if img.mode not in ("RGB", "RGBA"):
-                        img = img.convert("RGB")
-
-                    img_format = img.format if img.format else "JPEG"
-                    img.thumbnail((RESIZE_MAX_DIM, RESIZE_MAX_DIM))
-
-                    resized_buffer = BytesIO()
-                    save_format = "PNG" if img_format == "PNG" else "JPEG"
-                    img.save(resized_buffer, format=save_format, optimize=True)
-                    resized_buffer.seek(0)
-                    buffer_to_upload = resized_buffer
-                except Exception as e:
-                    flash(
-                        f"Hiba történt a(z) '{original_filename}' kép feldolgozása során. Kérjük, próbálja újra.",
-                        "warning",
-                    )
-                    continue
-
-            # Generate unique S3 key
-            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}_{original_filename}"
-            s3_key = f"{S3_PREFIX}/{entry_id}/{unique_filename}"
-            img_url = f"https://{S3_BUCKET}/{s3_key}"
-
-            try:
-                s3_client.upload_fileobj(
-                    Fileobj=buffer_to_upload,
-                    Bucket=S3_BUCKET,
-                    Key=s3_key,
-                    ExtraArgs={"ContentType": image_file.content_type},
-                )
-
-                new_image = ImageModel(
-                    entry_id=entry_id, file_name=unique_filename, url=img_url
-                )
-                image_objects_to_add.append(new_image)
-                successful_uploads_count += 1
-
-            except Exception as e:
-                flash(
-                    f"Hiba történt '{original_filename}' kép feltöltése során. Kérjük, próbáld újra.",
-                    "warning",
-                )
-
-        if image_objects_to_add:
-            try:
-                db.session.add_all(image_objects_to_add)
-                db.session.commit()
-                flash(f"{successful_uploads_count} kép sikeresen feltöltve!", "success")
-            except Exception as e:
-                db.session.rollback()
-                flash("Hiba történt a képek adatbázisba mentése során.", "danger")
-        elif successful_uploads_count == 0:
-            flash(
-                "Nincs kép feltöltve vagy minden kép feltöltése sikertelen volt.",
-                "info",
-            )
-
-        return redirect(url_for("adatlap", entry_id=entry_id))
-
-    else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                flash(f"Hiba '{form[field].label.text}' mezőben: {error}", "danger")
-        return redirect(request.url)
 
 # ADD MORE IMAGES
 @app.route("/entries/<int:entry_id>/images", methods=["GET", "POST"])
 @login_required
-@role_required("dementor","admin")
+@role_required("dementor", "admin")
 def upload_image_route(entry_id):
+    print("upload_image_route()")
     entry = Entry.query.get_or_404(entry_id)
     form = UploadImageForm()
 
@@ -610,12 +591,13 @@ def upload_image_route(entry_id):
 
     return render_template("upload_image.html", form=form, entry=entry)
 
+
 # DELETE IMAGE
 @app.route("/image/delete/<int:image_id>", methods=["POST"])
 @login_required
-@role_required("dementor","admin")
+@role_required("dementor", "admin")
 def delete_image(image_id):
-    image = Image.query.get_or_404(image_id)
+    image = DBImage.query.get_or_404(image_id)
     s3_key = f"{S3_PREFIX}/{image.entry_id}_{image.file_name}"
     s3_client.delete_object(Bucket=S3_BUCKET, Key=s3_key)
     try:
@@ -636,6 +618,7 @@ def delete_image(image_id):
         db.session.rollback()
 
     return redirect(request.referrer or url_for("index"))
+
 
 # CAMPAIGN
 @app.route("/campaign/")
@@ -723,6 +706,7 @@ def campaign_delete(campaign_id):
     flash("Campaign deleted successfully!", "success")
     return redirect(url_for("campaign_list"))
 
+
 # USERS
 @app.route("/admin_user", methods=["GET", "POST"])
 @login_required
@@ -733,8 +717,9 @@ def admin_user():
         return redirect(url_for("admin_user"))
     users = User.query.all()
     campaigns = Campaign.query.all()
-    campaigns_data = [{'id': c.id, 'name': c.name} for c in campaigns]
+    campaigns_data = [{"id": c.id, "name": c.name} for c in campaigns]
     return render_template("admin_user.html", users=users, campaigns=campaigns_data)
+
 
 # UPDATE ROLE
 @app.route("/update_role/<int:user_id>", methods=["POST"])
@@ -755,6 +740,7 @@ def update_role(user_id):
         flash("Érvénytelen jogosultsági szint!", "danger")
     return redirect(url_for("admin_user"))
 
+
 # ASSIGN USER TO CAMPAIGN
 @app.route("/update_campaign/<int:user_id>", methods=["POST"])
 @login_required
@@ -774,7 +760,10 @@ def update_campaign(user_id):
             if campaign:
                 user.campaign_id = new_campaign_id
                 db.session.commit()
-                flash(f"Felhasználó '{user.email}' kampánya sikeresen megváltoztatva!", "success")
+                flash(
+                    f"Felhasználó '{user.email}' kampánya sikeresen megváltoztatva!",
+                    "success",
+                )
             else:
                 flash("A kiválasztott kampány nem létezik!", "danger")
         except ValueError:
@@ -808,9 +797,10 @@ def profil():
     return render_template(
         "profile.html", voted_entries=voted_entries, active_campaign=active_campaign
     )
-    
+
+
 # ACCOUNT DELETION
-@app.route('/delete_account', methods=['POST'])
+@app.route("/delete_account", methods=["POST"])
 @login_required
 def delete_account():
     user_to_delete = current_user
@@ -820,13 +810,17 @@ def delete_account():
         db.session.commit()
         logout_user()
 
-        flash('A fiók és minden hozzá tartozó adat sikeresen törölve lett a rendszerből.', 'success')
-        return redirect(url_for('index'))
+        flash(
+            "A fiók és minden hozzá tartozó adat sikeresen törölve lett a rendszerből.",
+            "success",
+        )
+        return redirect(url_for("index"))
 
     except Exception as e:
-        db.session.rollback() 
-        flash('Nem sikerült törölni a fiókot', 'danger')
-        return redirect(url_for('profil'))
+        db.session.rollback()
+        flash("Nem sikerült törölni a fiókot", "danger")
+        return redirect(url_for("profil"))
+
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
@@ -865,36 +859,8 @@ def handle_image_upload(image_files, entry_id):
             )
             continue
 
-        file_size_mb = (
-            image_file.content_length / (1024 * 1024)
-            if image_file.content_length
-            else 0
-        )
         buffer_to_upload = BytesIO(image_file.read())
         image_file.seek(0)
-
-        if file_size_mb >= app.config["MAX_SIZE_MB"]:
-            try:
-                img = Image.open(buffer_to_upload)
-                if img.mode not in ("RGB", "RGBA"):
-                    img = img.convert("RGB")
-
-                img_format = img.format if img.format else "JPEG"
-                img.thumbnail(
-                    (app.config["RESIZE_MAX_DIM"], app.config["RESIZE_MAX_DIM"])
-                )
-
-                resized_buffer = BytesIO()
-                save_format = "PNG" if img_format == "PNG" else "JPEG"
-                img.save(resized_buffer, format=save_format, optimize=True)
-                resized_buffer.seek(0)
-                buffer_to_upload = resized_buffer
-            except Exception as e:
-                flash(
-                    f"Hiba történt '{original_filename}' kép feldolgozása során. {e}",
-                    "warning",
-                )
-                continue
 
         unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}_{original_filename}"
         s3_key = f"{app.config['S3_PREFIX']}/{entry_id}/{unique_filename}"
@@ -908,7 +874,9 @@ def handle_image_upload(image_files, entry_id):
                 ExtraArgs={"ContentType": image_file.content_type},
             )
 
-            new_image = Image(entry_id=entry_id, file_name=unique_filename, url=img_url)
+            new_image = DBImage(
+                entry_id=entry_id, file_name=unique_filename, url=img_url
+            )
             image_objects_to_add.append(new_image)
             successful_uploads_count += 1
 
@@ -930,10 +898,11 @@ def handle_image_upload(image_files, entry_id):
         return False
     return True
 
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    if ENV == "test":
+    if ENV == "development":
         app.run(debug=True)
     elif ENV == "prod":
         app.run(debug=True, host="0.0.0.0", port=5001)
