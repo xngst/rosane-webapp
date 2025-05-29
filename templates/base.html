@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hu">
 <!--
  __MKKP__
  \ \__/ /
@@ -10,7 +10,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}RÓSÁN{% endblock %}</title>
+	<title>{% block title %}RÓSÁNÉKATÉKA{% endblock %}</title>
+	<meta name="description" content=" A Rózsa Sándor Népi Közpénz Tékozló Alap, azaz RÓSÁNÉKATÉKA a Magyar Kétfarkú Kutya Párt kampánypénzének elköltésére kiírt pályázata. Szerencsére mi viccpárt vagyunk, megengedhetjük magunknak, hogy értelmes dolgokra költsük a közpénzt. "> 
+	<meta name="keywords" content="Közpénz, Pályázat, MKKP,"> 
+	<meta name="author" content="MKKP"> 
+	<meta property="og:title" content="RÓSÁNÉKATÉKA">  
 
   <!-- Favicon -->
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
@@ -37,8 +41,8 @@
 
   <style>
     ::selection {
-      color: white;
-      background: black;
+      color: black;
+      background: coral;
     }
 
     #footer_divider {
@@ -49,7 +53,7 @@
 </head>
 
 
-<body>
+<body class="{{ theme }}-mode"> {# This is where the theme class is applied #}
 
     <!-- Navbar Include -->
     {% include "navbar.html" %}
@@ -69,16 +73,17 @@
 
     <!-- Main Content -->
     <section class="section">
-        <div class="container">
-            {% block content %}{% endblock %}
-        </div>
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
     </section>
-
     {% block scripts %}
     {% endblock %}
-    <!--
+
+	<!--
 	{% include "footer.html" %}
 	-->
+
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const notifications = document.querySelectorAll(".notification");
@@ -86,11 +91,12 @@
       setTimeout(() => {
         notif.classList.add("fade-out");
         setTimeout(() => notif.remove(), 1000); // remove after fade
-      }, 4000);
+      }, 5000);
     });
   });
 </script>
 </body>
+
 
 </html>
 

@@ -21,6 +21,7 @@ from flask import (
     redirect,
     url_for,
     flash,
+    make_response,
     session,
     jsonify,
     abort,
