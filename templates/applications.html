@@ -46,9 +46,9 @@ if (window.innerWidth < 768) {
         <p><strong>Kedvelések:</strong> ${entry.like_count}</p>
         <form method="POST" action="/like/${entry.id}" class="mt-2">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="button is-primary is-small">👍 Ez tetszik!</button>
+          <button type="submit" class="button is-primary is-small">Szavazok!</button>
         </form>
-        <a href="/adatlap/${entry.id}" class="button is-link is-light is-small mt-2">Részletek</a>
+        <a href="/adatlap/${entry.id}" class="button is-link is-light is-small mt-2">Adatlap</a>
       </div>
     `;
     container.appendChild(card);

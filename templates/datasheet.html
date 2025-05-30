@@ -49,62 +49,76 @@
         <header class="card-header has-background-info">
         <p class="card-header-title has-text-white is-size-5">
             <span class="is-flex-grow-1">Adatlap: {{ entry.title }}</span>
-            <span>
-                <button class="button is-dark is-flex is-align-items-center" id="copyUrlButton">
-                    <span class="icon is-small">
-                        <i class="fa-solid fa-link mr-2"></i>
-                    </span>
-                    <span>Link másolása a vágólapra</span>
-                </button>
-            </span>
         </p>
-        </header>
-
-          <a href="/applications" class="button is-text is-fullwidth">
-            <span class="icon"><i class="fas fa-arrow-left"></i></span>
-            <span>Vissza a pályázatokhoz</span>
-          </a>
-
-
-{% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated %}
 {% if current_user.is_assigned_to_active_campaign() or current_user.role == "admin" %}
 <a href="{{ url_for('update_datasheet', entry_id=entry.id) }}"
-   class="card-header-item is-active is-flex is-justify-content-center"> {# Add these classes #}
+   class="card-header-item is-active is-flex is-justify-content-center mr-3">
     <div class="tags are-medium">
         <span class="tag"><i class="fas fa-edit me-1"></i> Szerkesztés</span>
     </div>
 </a>
 {% endif %}
 {% endif %}
+        </header>
 
-        <div class="card-content">
-          <div class="is-flex is-justify-content-flex-end mb-4 is-gap-3"> {# Added is-gap-3 for spacing #}
-            {# Like Button Form #}
-            
-		{% if not existing_like %}
-			<form action="{{ url_for('like', entry_id=entry.id) }}" method="POST" style="display:inline-block;">
-				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-				<button type="submit" class="button is-success">
-				    <span class="icon"><i class="fas fa-heart"></i></span>
-				    <span>Szavazok!</span>
-				</button>
-			</form>
-		{% else %}
-			<span class="tag is-success is-large">
-				<span class="icon"><i class="fas fa-check"></i></span>
-				<span>Már szavaztál erre a pályázatra!</span>
-			</span>
-		{% endif %}
-            
-            {# End Like Button Form #}
+<div class="card-content">
+<div class="has-text-left">
+    <a href="/applications" class="button is-small is-light">
+        <span class="icon is-small">
+            <i class="fas fa-arrow-left mr-1"></i>
+        </span>
+        <span>Vissza a pályázatokhoz</span>
+    </a>
+</div>
 
-            <a class="button is-link"
-              href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('adatlap', entry_id=entry.id, _external=True) }}"
-              target="_blank" rel="noopener">
-              <span class="icon"><i class="fab fa-facebook"></i></span>
-              <span>Megosztás</span>
+
+<div class="box">
+    <div class="columns is-multiline is-mobile is-justify-content-flex-end">
+
+        {# Like Button Form #}
+        <div class="column is-narrow-desktop is-full-mobile">
+        {% if not existing_like %}
+            <form action="{{ url_for('like', entry_id=entry.id) }}" method="POST" class="is-fullwidth-mobile">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="button is-success is-fullwidth-mobile">
+                    <span class="icon"><i class="fas fa-heart"></i></span>
+                    <span class="is-size-6">Szavazok!</span>
+                </button>
+            </form>
+        {% else %}
+            <span class="tag is-success is-large is-fullwidth-mobile has-text-centered py-2">
+                <span class="icon"><i class="fas fa-check"></i></span>
+                <span class="is-size-6">Már szavaztál erre!</span>
+            </span>
+        {% endif %}
+        </div>
+        
+        {# Copy URL Button #}
+        <div class="column is-narrow-desktop is-full-mobile">
+            <button class="button is-light is-fullwidth-mobile" id="copyUrlButton">
+                <span class="icon">
+                    <i class="fa-solid fa-link mr-2"></i>
+                </span>
+                <span class="is-size-6">Link másolása</span>
+            </button>
+        </div>
+
+
+
+        {# Facebook Share Button #}
+        <div class="column is-narrow-desktop is-full-mobile">
+            <a class="button is-link is-fullwidth-mobile"
+               href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('adatlap', entry_id=entry.id, _external=True) }}"
+               target="_blank" rel="noopener">
+                <span class="icon"><i class="fab fa-facebook"></i></span>
+                <span class="is-size-6">Megosztás</span>
             </a>
-          </div>
+        </div>
+    </div>
+</div>
+
+
           <div class="box">
             <div class="columns is-multiline">
               {% set fields = [
