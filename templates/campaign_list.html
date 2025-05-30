@@ -28,17 +28,12 @@
                 <td>
                     <div class="buttons">
                         <a href="{{ url_for('campaign_edit', campaign_id=campaign.id) }}" class="button is-primary is-small">Szerkesztés</a>
-                        <form method="POST" action="{{ url_for('campaign_delete', campaign_id=campaign.id) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="button is-danger is-small" onclick="return confirm('De biztos biztos biztos?')">Törlés</button>
-                        </form>
                     </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <card>///+hozzáadni hányan szavaztak </card>
     
     </div>
     <a href="{{ url_for('campaign_create') }}" class="button is-link">Új kampány hozzáadása</a>

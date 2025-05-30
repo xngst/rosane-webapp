@@ -7,15 +7,47 @@
 <div class="container">
   <h1 class="title" id="highlight">PÁLYÁZATOK</h1>
   <div class="box">
-  <div id="cards" class="is-hidden"></div>
-  <div id="table"></div>
-</div>
-</div>
+    <div class="field is-grouped is-grouped-multiline">
+      <div class="control">
+        <div class="select">
+          <select id="categoryFilter">
+            <option value="">Összes Kategória</option>
+            {% for category in categories %}
+            <option value="{{ category|escape }}">{{ category }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="control">
+        <div class="select">
+          <select id="cityFilter">
+            <option value="">Összes Város</option>
+            {% for city in cities %}
+            <option value="{{ city|escape }}">{{ city }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="control">
+        <div class="select">
+          <select id="statusFilter">
+            <option value="">Összes Státusz</option>
+            {% for st in status %}
+            <option value="{{ st|escape }}">{{ st }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
 
+    <div id="cards" class="is-hidden"></div>
+    <div id="table"></div>
+  </div>
+</div>
 
 <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
 <script>
-const entries = [
+const allEntries = [
   {% for entry in entries %}
     {
       id: "{{ entry.id }}",
@@ -23,102 +55,162 @@ const entries = [
       category: "{{ entry.category|escape }}",
       city: "{{ entry.city|escape }}",
       applicant: "{{ entry.applicant_name|escape }}",
-      like_count: "{{ entry.like_count }}"
+      like_count: "{{ entry.like_count }}",
+      status: "{{ entry.status|escape }}" // Make sure 'status' is included here
     }{{ "," if not loop.last }}
   {% endfor %}
 ];
 
-// Render as cards on mobile
-if (window.innerWidth < 768) {
-  document.getElementById('table').style.display = 'none';
-  document.getElementById('cards').classList.remove('is-hidden');
+const categoryFilter = document.getElementById('categoryFilter');
+const cityFilter = document.getElementById('cityFilter');
+const statusFilter = document.getElementById('statusFilter'); // Get the status filter element
+const tableElement = document.getElementById('table');
+const cardsElement = document.getElementById('cards');
 
-  const container = document.getElementById('cards');
-  entries.forEach(entry => {
-    const card = document.createElement('div');
-    card.className = 'card mb-4';
-    card.innerHTML = `
-      <div class="card-content">
-        <p class="title is-5">${entry.title}</p>
-        <p><strong>Kategória:</strong> ${entry.category}</p>
-        <p><strong>Város:</strong> ${entry.city}</p>
-        <p><strong>Pályázó:</strong> ${entry.applicant}</p>
-        <p><strong>Kedvelések:</strong> ${entry.like_count}</p>
-        <form method="POST" action="/like/${entry.id}" class="mt-2">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="button is-primary is-small">Szavazok!</button>
-        </form>
-        <a href="/adatlap/${entry.id}" class="button is-link is-light is-small mt-2">Adatlap</a>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-} else {
-  // Render Grid.js for larger screens
-  new gridjs.Grid({
-    columns: [
-      { id: 'id', name: 'ID', hidden: true },
-      { id: 'title', name: 'Elnevezés' },
-      { id: 'category', name: 'Kategória' },
-      { id: 'city', name: 'Város' },
-      { id: 'applicant', name: 'Pályázó' },
-      { id: 'like_count', name: 'Kedvelések' },
-      {
-        name: 'Szavazás',
-        formatter: (cell, row) => {
-          return gridjs.html(`
-            <form method="POST" action="/like/${row.cells[0].data}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="button is-success is-small">
-                    <span class="icon is-small">
-                        <i class="fas fa-heart"></i>
-                    </span>
-                    <span>Szavazok!</span>
-                </button>
-            </form>
-          `);
-        }
-      },
-	{
-		name: 'Adatlap',
-		formatter: (cell, row) => {
-		    return gridjs.html(`
-		        <a href="/adatlap/${row.cells[0].data}" class="button is-info is-small">
-		            <span class="icon is-small">
-		                <i class="fas fa-file-alt"></i> {# Font Awesome file icon #}
-		            </span>
-		            <span>Adatlap</span> {# Keeping the text for clarity, but you can remove it if you prefer icon-only #}
-		        </a>
-		    `);
-		}
-	},
+let grid;
 
-    ],
-    data: entries.map(e => [
-      e.id, e.title, e.category, e.city, e.applicant, e.like_count
-    ]),
-    search: true,
-    sort: true,
-    resizable: true,
-    pagination: {
-      enabled: true,
-      summary: true
-    },
-    language: {
-      'search': { 'placeholder': 'Keresés...' },
-      'pagination': {
-        'previous': 'Előző',
-        'next': 'Következő',
-        'showing': 'Megjelenítve',
-        'results': () => 'találat'
-      },
-      'loading': 'Betöltés...',
-      'noRecordsFound': 'Nincs találat',
-      'error': 'Hiba történt az adatok betöltésekor'
+function renderContent() {
+    let filteredEntries = allEntries;
+
+    const selectedCategory = categoryFilter.value;
+    const selectedCity = cityFilter.value;
+    const selectedStatus = statusFilter.value; // Get the selected status value
+
+    if (selectedCategory) {
+        filteredEntries = filteredEntries.filter(entry => entry.category === selectedCategory);
     }
-  }).render(document.getElementById('table'));
+    if (selectedCity) {
+        filteredEntries = filteredEntries.filter(entry => entry.city === selectedCity);
+    }
+    if (selectedStatus) { // Filter by status if a status is selected
+        filteredEntries = filteredEntries.filter(entry => entry.status === selectedStatus);
+    }
+
+    // Destroy existing Grid.js instance if it exists
+    if (grid) {
+        grid.destroy();
+        tableElement.innerHTML = ''; // Clear the table div content
+    }
+    // Clear existing cards
+    cardsElement.innerHTML = '';
+
+    if (window.innerWidth < 768) {
+        tableElement.style.display = 'none';
+        cardsElement.classList.remove('is-hidden');
+        renderCards(filteredEntries);
+    } else {
+        cardsElement.classList.add('is-hidden');
+        tableElement.style.display = 'block'; // Ensure table is visible
+        renderGrid(filteredEntries);
+    }
 }
+
+function renderCards(data) {
+    if (data.length === 0) {
+        cardsElement.innerHTML = '<p class="has-text-centered is-size-5 has-text-grey-light">Nincs találat a kiválasztott szűrők alapján.</p>';
+        return;
+    }
+    data.forEach(entry => {
+        const card = document.createElement('div');
+        card.className = 'card mb-4';
+        card.innerHTML = `
+            <div class="card-content">
+                <p class="title is-5">${entry.title}</p>
+                <p><strong>Kategória:</strong> ${entry.category}</p>
+                <p><strong>Város:</strong> ${entry.city}</p>
+                <p><strong>Státusz:</strong> ${entry.status || '—'}</p> {# Display status in cards #}
+                <p><strong>Pályázó:</strong> ${entry.applicant}</p>
+                <p><strong>Kedvelések:</strong> ${entry.like_count}</p>
+                <form method="POST" action="/like/${entry.id}" class="mt-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="button is-primary is-small">Szavazok!</button>
+                </form>
+                <a href="/adatlap/${entry.id}" class="button is-link is-light is-small mt-2">Adatlap</a>
+            </div>
+        `;
+        cardsElement.appendChild(card);
+    });
+}
+
+function renderGrid(data) {
+    if (data.length === 0) {
+        tableElement.innerHTML = '<p class="has-text-centered is-size-5 has-text-grey-light">Nincs találat a kiválasztott szűrők alapján.</p>';
+        return;
+    }
+    grid = new gridjs.Grid({
+        columns: [
+            { id: 'id', name: 'ID', hidden: true },
+            { id: 'title', name: 'Elnevezés' },
+            { id: 'category', name: 'Kategória' },
+            { id: 'city', name: 'Város' },
+            { id: 'status', name: 'Státusz' }, // Add status column for Grid.js
+            { id: 'applicant', name: 'Pályázó' },
+            { id: 'like_count', name: 'Kedvelések' },
+            {
+                name: 'Szavazás',
+                formatter: (cell, row) => {
+                    return gridjs.html(`
+                        <form method="POST" action="/like/${row.cells[0].data}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button is-success is-small">
+                                <span class="icon is-small">
+                                    <i class="fas fa-heart"></i>
+                                </span>
+                                <span>Szavazok!</span>
+                            </button>
+                        </form>
+                    `);
+                }
+            },
+            {
+                name: 'Adatlap',
+                formatter: (cell, row) => {
+                    return gridjs.html(`
+                        <a href="/adatlap/${row.cells[0].data}" class="button is-info is-small">
+                            <span class="icon is-small">
+                                <i class="fas fa-file-alt"></i>
+                            </span>
+                            <span>Adatlap</span>
+                        </a>
+                    `);
+                }
+            },
+        ],
+        data: data.map(e => [
+            e.id, e.title, e.category, e.city, e.status, e.applicant, e.like_count // Ensure status is passed to Grid.js data
+        ]),
+        search: true,
+        sort: true,
+        resizable: true,
+        pagination: {
+            enabled: true,
+            summary: true
+        },
+        language: {
+            'search': { 'placeholder': 'Keresés...' },
+            'pagination': {
+                'previous': 'Előző',
+                'next': 'Következő',
+                'showing': 'Megjelenítve',
+                'results': () => 'találat'
+            },
+            'loading': 'Betöltés...',
+            'noRecordsFound': 'Nincs találat',
+            'error': 'Hiba történt az adatok betöltésekor'
+        }
+    }).render(tableElement);
+}
+
+// Event Listeners for Filters
+categoryFilter.addEventListener('change', renderContent);
+cityFilter.addEventListener('change', renderContent);
+statusFilter.addEventListener('change', renderContent); // Add event listener for status filter
+
+// Initial render on page load
+renderContent();
+
+// Re-render on window resize to switch between table/cards
+window.addEventListener('resize', renderContent);
 </script>
 
 {% endblock %}
-

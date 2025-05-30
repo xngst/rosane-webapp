@@ -2,78 +2,129 @@
 {% block title %}SZERKESZTÉS{% endblock %}
 {% block content %}
 <div class="container">
-        <h1 class="title">{% if campaign %}Szerkesztés{% else %}Új kampány{% endif %}</h1>
+    <h1 class="title">{% if campaign %}Kampány szerkesztés{% else %}Új kampány{% endif %}</h1>
 
-        <form method="POST">
-            {{ form.hidden_tag() }}  {# Include the CSRF token #}
-
-            <div class="field">
-                <label class="label" for="name">{{ form.name.label }}</label>
-                <div class="control">
-                    {{ form.name(class="input") }}
-                </div>
-                {% if form.name.errors %}
-                    <p class="help is-danger">{{ form.name.errors[0] }}</p>
+    <div class="box mb-4">
+        <h2 class="subtitle is-5">Kampány statisztikák:</h2>
+        <div class="columns is-multiline">
+            <div class="column is-half">
+                <p class="has-text-weight-bold">
+                    <span class="icon-text">
+                        <span class="icon"><i class="fas fa-heart"></i></span>
+                        <span>Összes kedvelés (szavazat):</span>
+                    </span>
+                </p>
+                {% if sum_huf_awarded %}
+                <p class="is-size-4 has-text-primary">
+                    {{ "{:,.0f}".format(total_likes) | replace(",", " ") }}
+                </p>
+                {% else %}
+                <p>0</p>
                 {% endif %}
             </div>
-
-            <div class="field">
-                <label class="label" for="description">{{ form.description.label }}</label>
-                <div class="control">
-                    {{ form.description(class="textarea") }}
-                </div>
-                {% if form.description.errors %}
-                    <p class="help is-danger">{{ form.description.errors[0] }}</p>
+            <div class="column is-half">
+                <p class="has-text-weight-bold">
+                    <span class="icon-text">
+                        <span class="icon"><i class="fas fa-coins"></i></span>
+                        <span>Összesen odaítélt összeg:</span>
+                    </span>
+                </p>
+                {% if sum_huf_awarded %}
+                <p class="is-size-4 has-text-success">
+                    {{ "{:,.0f}".format(sum_huf_awarded) | replace(",", " ") }} Ft
+                </p>
+                {% else %}
+                <p>0 Ft</p>
                 {% endif %}
             </div>
-
-            <div class="field">
-                <label class="label" for="from_date">{{ form.from_date.label }}</label>
-                <div class="control">
-                    {{ form.from_date(class="input") }}
-                </div>
-                {% if form.from_date.errors %}
-                    <p class="help is-danger">{{ form.from_date.errors[0] }}</p>
-                {% endif %}
+            {# You could also show total_likes_from_entries if desired #}
+            {#
+            <div class="column is-half">
+                <p class="has-text-weight-bold">Összes kedvelés (bejegyzésekből):</p>
+                <p class="is-size-4 has-text-info">{{ "{:,.0f}".format(stats.total_likes_from_entries) | replace(",", " ") }}</p>
             </div>
+            #}
+        </div>
+    </div>
 
-            <div class="field">
-                <label class="label" for="to_date">{{ form.to_date.label }}</label>
-                <div class="control">
-                    {{ form.to_date(class="input") }}
-                </div>
-                {% if form.to_date.errors %}
-                    <p class="help is-danger">{{ form.to_date.errors[0] }}</p>
-                {% endif %}
+<div class="box mb-4">
+    <form method="POST">
+        {{ form.hidden_tag() }} {# Include the CSRF token #}
+
+        <div class="field">
+            <label class="label" for="name">{{ form.name.label }}</label>
+            <div class="control">
+                {{ form.name(class="input") }}
             </div>
+            {% if form.name.errors %}
+                <p class="help is-danger">{{ form.name.errors[0] }}</p>
+            {% endif %}
+        </div>
 
-            <div class="field">
-                <label class="label" for="status">{{ form.status.label }}</label>
-                <div class="control">
-                    <div class="select">
-                        {{ form.status() }}
-                    </div>
-                </div>
-                {% if form.status.errors %}
-                    <p class="help is-danger">{{ form.status.errors[0] }}</p>
-                {% endif %}
+        <div class="field">
+            <label class="label" for="description">{{ form.description.label }}</label>
+            <div class="control">
+                {{ form.description(class="textarea") }}
             </div>
+            {% if form.description.errors %}
+                <p class="help is-danger">{{ form.description.errors[0] }}</p>
+            {% endif %}
+        </div>
 
-            <div class="field is-grouped">
-                <div class="control">
-                    {{ form.submit(class="button is-primary") }}
-                </div>
-                <div class="control">
-                    <a href="{{ url_for('campaign_list') }}" class="button is-link is-light">Inkábbnem</a>
+		<div class="field">
+			<label class="label" for="from_date">{{ form.from_date.label }}</label>
+			<div class="control">
+				{{ form.from_date(class="input", id="from_date") }}
+			</div>
+			{% if form.from_date.errors %}
+				<p class="help is-danger">{{ form.from_date.errors[0] }}</p>
+			{% endif %}
+		</div>
+
+        <div class="field">
+            <label class="label" for="to_date">{{ form.to_date.label }}</label>
+            <div class="control">
+                {{ form.to_date(class="input") }}
+            </div>
+            {% if form.to_date.errors %}
+                <p class="help is-danger">{{ form.to_date.errors[0] }}</p>
+            {% endif %}
+        </div>
+
+        <div class="field">
+            <label class="label" for="status">{{ form.status.label }}</label>
+            <div class="control">
+                <div class="select">
+                    {{ form.status() }}
                 </div>
             </div>
-        </form>
+            {% if form.status.errors %}
+                <p class="help is-danger">{{ form.status.errors[0] }}</p>
+            {% endif %}
+        </div>
 
-        <p class="mt-4">
-            <a href="{{ url_for('campaign_list') }}" class="has-text-link">Vissza a kampánylistára</a>
-        </p>
+        <div class="field is-grouped">
+            <div class="control">
+                {{ form.submit(class="button is-primary") }}
+            </div>
+            <div class="control">
+                <a href="{{ url_for('campaign_list') }}" class="button is-link is-light">Inkábbnem</a>
+            </div>
+        </div>
+    </form>
 
-</div>
+    <p class="mt-4">
+        <a href="{{ url_for('campaign_list') }}" class="has-text-link">Vissza a kampánylistára</a>
+    </p>
+
+	</div>
+		<form method="POST" action="{{ url_for('campaign_delete', campaign_id=campaign.id) }}">
+		    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		    <button type="submit" class="button is-danger is-small" onclick="return confirm('De biztos biztos biztos? 
+		    Ez minden pályázatot töröl a kampány alól!')">Törlés</button>
+		</form>
+	</div>
+
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -88,4 +139,6 @@
         }
     });
 </script>
+
+
 {% endblock %}

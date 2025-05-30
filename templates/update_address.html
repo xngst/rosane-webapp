@@ -14,14 +14,14 @@
           <span>{{ entry.title }} - helyszín módósítás</span>
         </p>
       </header>
-
+      <div class="card-content">
+      
       <a href="{{ url_for('update_datasheet', entry_id=entry.id) }}">
         <div class="tags are-medium is-warning">
           <span class="tag is-link"><i class="fas fa-arrow-left"></i> &nbsp;Vissza</span>
         </div>
-      </a>
-
-      <div class="card-content">
+      </a>    
+        
         <form method="POST" enctype="multipart/form-data">
           {{ form.hidden_tag() }}
           <div class="is-hidden">

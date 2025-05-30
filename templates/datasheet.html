@@ -64,11 +64,10 @@
 
 <div class="card-content">
 <div class="has-text-left">
-    <a href="/applications" class="button is-small is-light">
-        <span class="icon is-small">
-            <i class="fas fa-arrow-left mr-1"></i>
-        </span>
-        <span>Vissza a pályázatokhoz</span>
+    <a href="/applications">
+        <div class="tags are-medium is-warning">
+          <span class="tag is-link"><i class="fas fa-arrow-left"></i> &nbsp;Vissza a páályázatokhoz</span>
+        </div>
     </a>
 </div>
 
@@ -115,9 +114,8 @@
                 <span class="is-size-6">Megosztás</span>
             </a>
         </div>
-    </div>
-</div>
-
+		</div>
+		</div>
 
           <div class="box">
             <div class="columns is-multiline">
@@ -129,13 +127,25 @@
                 ('<i class="fas fa-user"></i> Pályázó neve', entry.applicant_name or '—'),
                 ('<i class="fas fa-folder-open"></i> Kategória', entry.category or '—'),
                 ('<i class="fas fa-info-circle"></i> Állapot', entry.status or '—'),
-                ('<i class="fas fa-coins"></i> Megítélt támogatás összege', entry.huf_awarded ~ ' HUF' if entry.huf_awarded else '—'),
               ] %}
               {% for label, value in fields %}
               <div class="column is-half">
                 <p><strong>{{ label|safe }}:</strong> {{ value }}</p>
               </div>
               {% endfor %}
+
+			<div class="column is-half">
+			  <p>
+				<strong><i class="fas fa-coins"></i> Megítélt támogatás összege:</strong>
+				{% if entry.huf_awarded is not none %}
+				  {# Format for Hungarian locale: space as thousands separator, comma as decimal #}
+				  {{ "{:,.0f}".format(entry.huf_awarded).replace(",", " ") }} HUF
+				{% else %}
+				  —
+				{% endif %}
+			  </p>
+			</div>
+
 
               <div class="column is-half">
                 <p><strong><i class="fab fa-facebook-square"></i> Facebook esemény:</strong></p>
@@ -173,8 +183,13 @@
           </div>
           {% endif %}
         </div>
+    <footer class="card-footer has-background-primary">
+    </footer>       
       </div>
+
+      
     </div>
+    
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox-plus-jquery.min.js"></script>

@@ -5,16 +5,6 @@
 <link href="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/css/lightbox.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/lightbox2@2/dist/js/lightbox-plus-jquery.min.js"></script>
 
-<style>
-.card-header-title{color:white;}
-#map {
-    width: 100%;
-    height: 300px;
-    margin-top: 1em;
-    border-radius: 5px;
-}
-</style>
-
 <div class="container">
   <div class="columns is-centered">
     <div class="column is-10">
@@ -25,15 +15,18 @@
           </p>
         </header>
 
-        <a href="{{ url_for('adatlap', entry_id=entry.id) }}">
-          <div class="tags are-medium is-warning">
-            <span class="tag"><i class="fas fa-arrow-left"></i> Vissza</span>
-          </div>
-        </a>
+
 
         <div class="card-content">
-        {{ form.hidden_tag() }}
+        
+        <a href="{{ url_for('adatlap', entry_id=entry.id) }}">
+        <div class="tags are-medium is-warning">
+          <span class="tag is-link"><i class="fas fa-arrow-left"></i> &nbsp;Vissza</span>
+        </div>
+        </a>        
+        
           <form method="POST" action="{{ url_for('update_datasheet', entry_id=entry.id) }}" enctype="multipart/form-data">
+          {{ form.hidden_tag() }}
             <div class="parent-of-control is-flex is-justify-content-end">
               <div class="control">
                 <button type="submit" class="button is-primary">

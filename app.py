@@ -389,7 +389,10 @@ def applications():
     # Order entries by a random function
     #entries = Entry.query.order_by(func.random()).all()
     entries = Entry.query.all()
-    return render_template("applications.html", entries=entries)
+    categories = sorted(list(set(entry.category for entry in entries if entry.category)))
+    status = sorted(list(set(entry.status for entry in entries if entry.status)))
+    cities = sorted(list(set(entry.city for entry in entries if entry.city)))
+    return render_template("applications.html", entries=entries, categories=categories,cities=cities,status=status)
 
 # CREATE ENTRY
 @app.route("/formanyomtatvany", methods=["GET", "POST"])
@@ -691,7 +694,13 @@ def campaign_edit(campaign_id):
     form = CampaignForm(obj=campaign)
 
     active_campaign = Campaign.query.filter_by(status="aktív").first()
-
+    total_likes = db.session.query(func.count(Like.id))\
+                                            .filter(Like.campaign_id == campaign_id)\
+                                            .scalar()
+    sum_huf_awarded = db.session.query(func.sum(Entry.huf_awarded))\
+                                .filter(Entry.campaign_id == campaign_id)\
+                                .scalar()                                            
+                                            
     if form.validate_on_submit():
         form.populate_obj(campaign)
         campaign.updated_at = datetime.now()
@@ -709,7 +718,11 @@ def campaign_edit(campaign_id):
         flash("Campaign updated successfully!", "success")
         return redirect(url_for("campaign_list"))
 
-    return render_template("campaign_form.html", form=form, campaign=campaign)
+    return render_template("campaign_form.html", form=form, 
+    campaign=campaign, 
+    total_likes=total_likes, 
+    sum_huf_awarded=sum_huf_awarded
+    )
 
 
 # DELETE CAMPAIGN
