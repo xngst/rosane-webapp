@@ -56,14 +56,15 @@ const allEntries = [
       city: "{{ entry.city|escape }}",
       applicant: "{{ entry.applicant_name|escape }}",
       like_count: "{{ entry.like_count }}",
-      status: "{{ entry.status|escape }}" // Make sure 'status' is included here
+      status: "{{ entry.status|escape }}",
+      has_liked: {{ 'true' if entry.has_liked else 'false' }} // Pass the has_liked status
     }{{ "," if not loop.last }}
   {% endfor %}
 ];
 
 const categoryFilter = document.getElementById('categoryFilter');
 const cityFilter = document.getElementById('cityFilter');
-const statusFilter = document.getElementById('statusFilter'); // Get the status filter element
+const statusFilter = document.getElementById('statusFilter');
 const tableElement = document.getElementById('table');
 const cardsElement = document.getElementById('cards');
 
@@ -74,7 +75,7 @@ function renderContent() {
 
     const selectedCategory = categoryFilter.value;
     const selectedCity = cityFilter.value;
-    const selectedStatus = statusFilter.value; // Get the selected status value
+    const selectedStatus = statusFilter.value;
 
     if (selectedCategory) {
         filteredEntries = filteredEntries.filter(entry => entry.category === selectedCategory);
@@ -82,7 +83,7 @@ function renderContent() {
     if (selectedCity) {
         filteredEntries = filteredEntries.filter(entry => entry.city === selectedCity);
     }
-    if (selectedStatus) { // Filter by status if a status is selected
+    if (selectedStatus) {
         filteredEntries = filteredEntries.filter(entry => entry.status === selectedStatus);
     }
 
@@ -100,7 +101,7 @@ function renderContent() {
         renderCards(filteredEntries);
     } else {
         cardsElement.classList.add('is-hidden');
-        tableElement.style.display = 'block'; // Ensure table is visible
+        tableElement.style.display = 'block';
         renderGrid(filteredEntries);
     }
 }
@@ -113,17 +114,21 @@ function renderCards(data) {
     data.forEach(entry => {
         const card = document.createElement('div');
         card.className = 'card mb-4';
+        const buttonText = entry.has_liked ? 'Szavaztam' : 'Szavazok!';
+        const buttonClass = entry.has_liked ? 'is-static' : 'is-primary'; // Make button static if liked
+        const buttonDisabled = entry.has_liked ? 'disabled' : ''; // Disable button if liked
+
         card.innerHTML = `
             <div class="card-content">
                 <p class="title is-5">${entry.title}</p>
                 <p><strong>Kategória:</strong> ${entry.category}</p>
                 <p><strong>Város:</strong> ${entry.city}</p>
-                <p><strong>Státusz:</strong> ${entry.status || '—'}</p> {# Display status in cards #}
+                <p><strong>Státusz:</strong> ${entry.status || '—'}</p>
                 <p><strong>Pályázó:</strong> ${entry.applicant}</p>
                 <p><strong>Kedvelések:</strong> ${entry.like_count}</p>
                 <form method="POST" action="/like/${entry.id}" class="mt-2">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="button is-primary is-small">Szavazok!</button>
+                    <button type="submit" class="button ${buttonClass} is-small" ${buttonDisabled}>${buttonText}</button>
                 </form>
                 <a href="/adatlap/${entry.id}" class="button is-link is-light is-small mt-2">Adatlap</a>
             </div>
@@ -143,20 +148,26 @@ function renderGrid(data) {
             { id: 'title', name: 'Elnevezés' },
             { id: 'category', name: 'Kategória' },
             { id: 'city', name: 'Város' },
-            { id: 'status', name: 'Státusz' }, // Add status column for Grid.js
+            { id: 'status', name: 'Státusz' },
             { id: 'applicant', name: 'Pályázó' },
             { id: 'like_count', name: 'Kedvelések' },
             {
                 name: 'Szavazás',
                 formatter: (cell, row) => {
+                    // Access the has_liked property from the row data
+                    const hasLiked = row.cells[7].data; // Assuming has_liked is at index 7
+                    const buttonText = hasLiked ? 'Szavaztam' : 'Szavazok!';
+                    const buttonClass = hasLiked ? 'is-static' : 'is-success'; // Change button style if liked
+                    const buttonDisabled = hasLiked ? 'disabled' : ''; // Disable button if liked
+
                     return gridjs.html(`
                         <form method="POST" action="/like/${row.cells[0].data}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="button is-success is-small">
+                            <button type="submit" class="button ${buttonClass} is-small" ${buttonDisabled}>
                                 <span class="icon is-small">
                                     <i class="fas fa-heart"></i>
                                 </span>
-                                <span>Szavazok!</span>
+                                <span>${buttonText}</span>
                             </button>
                         </form>
                     `);
@@ -177,7 +188,7 @@ function renderGrid(data) {
             },
         ],
         data: data.map(e => [
-            e.id, e.title, e.category, e.city, e.status, e.applicant, e.like_count // Ensure status is passed to Grid.js data
+            e.id, e.title, e.category, e.city, e.status, e.applicant, e.like_count, e.has_liked // Include has_liked in Grid.js data
         ]),
         search: true,
         sort: true,
@@ -204,7 +215,7 @@ function renderGrid(data) {
 // Event Listeners for Filters
 categoryFilter.addEventListener('change', renderContent);
 cityFilter.addEventListener('change', renderContent);
-statusFilter.addEventListener('change', renderContent); // Add event listener for status filter
+statusFilter.addEventListener('change', renderContent);
 
 // Initial render on page load
 renderContent();

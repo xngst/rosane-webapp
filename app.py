@@ -94,7 +94,7 @@ csrf = CSRFProtect(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Tessék csak tessék!"
-
+login_manager.login_message_category = "danger"
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -347,10 +347,17 @@ def like(entry_id):
 
 
 # MAP
-@app.route("/terkep", methods=["GET", "POST"])
+@app.route("/terkep", methods=["GET"])
 def map():
     entries = Entry.query.all()
+    
+    liked_entry_ids = set()
+    if current_user.is_authenticated:
+        user_likes = Like.query.filter_by(user_id=current_user.id).all()
+        liked_entry_ids = {like.entry_id for like in user_likes}    
+    
     geojson = {"type": "FeatureCollection", "features": []}
+    
     for entry in entries:
         images = DBImage.query.filter_by(entry_id=entry.id).all()
         img_paths = [image.url for image in images]
@@ -370,6 +377,7 @@ def map():
                 "facebook_url": entry.facebook_url,
                 "img_paths": json.dumps(img_paths),
                 "icon": "custom-marker.png",
+                "has_liked": entry.id in liked_entry_ids
             },
         }
         geojson["features"].append(feature)
@@ -386,13 +394,37 @@ def map():
 # APPLICATIONS
 @app.route("/applications", methods=["GET", "POST"])
 def applications():
-    # Order entries by a random function
-    #entries = Entry.query.order_by(func.random()).all()
     entries = Entry.query.all()
     categories = sorted(list(set(entry.category for entry in entries if entry.category)))
     status = sorted(list(set(entry.status for entry in entries if entry.status)))
     cities = sorted(list(set(entry.city for entry in entries if entry.city)))
-    return render_template("applications.html", entries=entries, categories=categories,cities=cities,status=status)
+
+    liked_entry_ids = set()
+    if current_user.is_authenticated:
+        user_likes = Like.query.filter_by(user_id=current_user.id).all()
+        liked_entry_ids = {like.entry_id for like in user_likes}
+
+    entries_for_template = []
+    for entry in entries:
+        entry_data = {
+            'id': entry.id,
+            'title': entry.title,
+            'category': entry.category,
+            'city': entry.city,
+            'applicant_name': entry.applicant_name,
+            'like_count': entry.like_count,
+            'status': entry.status,
+            'has_liked': entry.id in liked_entry_ids
+        }
+        entries_for_template.append(entry_data)
+
+    return render_template(
+        "applications.html",
+        entries=entries_for_template,
+        categories=categories,
+        cities=cities,
+        status=status
+    )
 
 # CREATE ENTRY
 @app.route("/formanyomtatvany", methods=["GET", "POST"])

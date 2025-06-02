@@ -5,21 +5,6 @@
 <h1 class="title is-3 mb-5" id="highlight">BEJELENTKEZÉS</h1>
 <div class="container has-text-centered">
 <div class="box">
-{# Display Flask flash messages #}
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="notification is-light p-0 mb-4">
-            <ul class="list-none p-0">
-            {% for category, message in messages %}
-                <li class="py-2 px-4 rounded-md {% if category == 'success' %}has-background-success-light has-text-success{% elif category == 'danger' %}has-background-danger-light has-text-danger{% elif category == 'warning' %}has-background-warning-light has-text-warning{% else %}has-background-info-light has-text-info{% endif %} mb-2">
-                    {{ message }}
-                </li>
-            {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-{% endwith %}
-
 
 <p class="subtitle is-5 mb-6">Jelentkezz be az alábbi lehetőségek egyikével</p>
 
