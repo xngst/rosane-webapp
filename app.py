@@ -37,7 +37,7 @@ from flask_login import (
 )
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, validate_csrf, CSRFError
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 import boto3
@@ -298,6 +298,78 @@ def oauth_callback():
         return redirect(url_for("index"))
 
 
+@app.route("/like2/<int:entry_id>", methods=["POST"])
+@login_required
+@csrf.exempt 
+def like2(entry_id):
+    """
+    Handles the liking of an entry via AJAX POST request.
+    Requires user to be logged in.
+    Validates CSRF token, checks campaign status, and updates like count.
+    Returns JSON response.
+    """
+    try:
+        data = request.get_json()
+        print(data)
+
+        if not data:
+            return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+
+        csrf_token = data.get('csrf_token')
+
+        # Validate CSRF token
+        try:
+            validate_csrf(csrf_token)
+        except CSRFError:
+            return jsonify({"success": False, "message": "CSRF token missing or invalid"}), 403
+
+        entry = Entry.query.get_or_404(entry_id)
+
+        active_campaign = Campaign.query.filter_by(status="aktív").first()
+
+        if not active_campaign:
+
+            return jsonify({"success": False, "message": "Jelenleg nincs aktív kampány."}), 400
+
+        current_datetime = datetime.now()
+
+        if active_campaign.to_date and current_datetime > active_campaign.to_date:
+            return jsonify({"success": False, "message": "A szavazási időszak már lejárt ehhez a kampányhoz."}), 400
+
+        user_has_liked_entry = Like.query.filter(
+            Like.user_id == current_user.id,
+            Like.entry_id == entry.id,
+            Like.campaign_id == active_campaign.id,
+        ).first()
+
+        if not user_has_liked_entry:
+            try:
+                entry.like_count += 1
+
+                new_like = Like(
+                    user_id=current_user.id, entry_id=entry.id, campaign_id=active_campaign.id
+                )
+                db.session.add(new_like)
+                db.session.commit()
+
+                # Return JSON response for success
+                return jsonify({
+                    "success": True,
+                    "message": "Sikeres szavazat! Köszönjük, hogy szavaztál erre pályázatra!",
+                    "new_like_count": entry.like_count,
+                    "has_liked": True
+                }), 200
+
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({"success": False, "message": f"Hiba történt a szavazat rögzítése során: {e}"}), 500
+        else:
+            return jsonify({"success": False, "message": "Egy pályázatra csak egy szavazat adható le!"}), 409
+
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Váratlan hiba történt: {e}"}), 500
+
+
 # LIKE
 @app.route("/like/<int:entry_id>", methods=["POST"])
 @login_required
@@ -389,6 +461,20 @@ def map():
         START_LAT=app.config["START_LAT"],
         geojson_data=geojson,
     )
+
+
+@app.route('/process_data', methods=['POST'])
+def process_data():
+
+    if request.is_json:
+        data = request.get_json()
+        received_message = data.get('message', 'No message provided')
+        response_data = {'status': 'success', 
+        'received': received_message, 'response': 'Hello from Flask!'}
+        return jsonify(response_data)
+    else:
+        return jsonify({'status': 'error', 'message': 'Request must be JSON'}), 400
+
 
 
 # APPLICATIONS

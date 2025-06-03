@@ -120,8 +120,8 @@ map.on('click', 'unclustered-point', (e) => {
     ).join('');
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]') ?
-                      document.querySelector('meta[name="csrf-token"]').getAttribute('content') :
-                      '';
+                                document.querySelector('meta[name="csrf-token"]').getAttribute('content') :
+                                '';
     
     if (!csrfToken) {
         console.error("CSRF token meta tag not found. Like button might not work.");
@@ -138,15 +138,15 @@ map.on('click', 'unclustered-point', (e) => {
 
           <section class="modal-card-body">
             <div class="content">
-           <form action="/like/${props.id}" method="POST">
+            <form action="/like/${props.id}" method="POST" id="like-form">
               <input type="hidden" name="csrf_token" value="${csrfToken}">
-			<button type="submit" class="button is-success is-fullwidth"
-					${props.has_liked === "true" || props.has_liked === true ? "disabled" : ""}>
-			  <span class="icon">
-				<i class="fas fa-heart"></i>
-			  </span>
-			  <span>${props.has_liked === "true" || props.has_liked === true ? "Szavaztam" : "Szavazok!"}</span>
-			</button>
+            <button type="submit" class="button is-success is-fullwidth" id="szavazok-button"
+                    ${props.has_liked === "true" || props.has_liked === true ? "disabled" : ""}>
+              <span class="icon">
+                <i class="fas fa-heart"></i>
+              </span>
+              <span>${props.has_liked === "true" || props.has_liked === true ? "Szavaztam" : "Szavazok!"}</span>
+            </button>
             </form>
               <div class="box">
                 <div class="columns is-multiline">
@@ -172,7 +172,7 @@ map.on('click', 'unclustered-point', (e) => {
                     <div class="mb-2">
                       <strong><i class="fas fa-thumbs-up mr-2"></i>Kedvelések száma:</strong>
                     </div>
-                    <div>${props.like_count}</div>
+                    <div id="like-count">${props.like_count}</div>
                   </div>
 
                   <div class="column is-half">
@@ -221,7 +221,6 @@ map.on('click', 'unclustered-point', (e) => {
 
           <footer class="modal-card-foot is-flex is-flex-direction-column is-gap-2">
 
-
             <a href="/adatlap/${props.id}" class="button is-warning is-fullwidth">
               <span class="icon">
                 <i class="fas fa-file-alt"></i>
@@ -236,8 +235,60 @@ map.on('click', 'unclustered-point', (e) => {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     const modal = document.getElementById('datasheet-modal');
 
+    // Attach event listeners for closing the modal
     modal.querySelector('.delete').addEventListener('click', () => modal.remove());
     modal.querySelector('.modal-background').addEventListener('click', () => modal.remove());
+
+    // Attach the event listener to the "Szavazok!" button
+    const szavazokButton = document.getElementById('szavazok-button');
+    if (szavazokButton) {
+        szavazokButton.addEventListener('click', function(event) {
+            // Prevent the default form submission
+            event.preventDefault();
+
+            const form = document.getElementById('like-form');
+            const postId = props.id; 
+
+            // Define the data to be sent
+            var postData = {
+                'message': `User liked post with ID: ${postId}`,
+                'csrf_token': csrfToken 
+            };
+
+            $.ajax({
+                url: `/like2/${postId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(postData),
+                success: function(response) {
+                    console.log("Server Response:", response);
+                    if (response.success) {
+                        szavazokButton.innerHTML = `
+                            <span class="icon">
+                                <i class="fas fa-heart"></i>
+                            </span>
+                            <span>Szavaztam</span>
+                        `;
+                        szavazokButton.disabled = true;
+
+                        const likeCountElement = document.getElementById('like-count');
+                        if (likeCountElement) {
+                            likeCountElement.textContent = response.new_like_count;
+                        }
+
+                    } else {
+                        // Handle cases where the server indicates an error (e.g., already liked)
+                        console.error("Error liking post:", response.message);
+                        // $('#serverResponse').text(response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("AJAX Error:", error);
+                    // $('#serverResponse').text('Error processing like.');
+                }
+            });
+        });
+    }
 });
 // END OF MODAL POPUP
 
